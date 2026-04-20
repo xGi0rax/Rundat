@@ -1,0 +1,97 @@
+🧾 Identificativi attività
+activityId → Identificativo numerico univoco dell’attività.
+activityName → Nome assegnato all’attività (es. “Corsa mattutina”).
+activityUUID → Identificatore univoco globale (formato UUID).
+activityType → Tipo generale di attività (es. running, cycling).
+eventType → Specifica se è un evento particolare (gara, allenamento, ecc.).
+sportTypeId → Codice numerico dello sport praticato.
+purposeful → Indica se l’attività è stata fatta intenzionalmente.
+manualActivity → Indica se l’attività è stata inserita manualmente.
+parent → Eventuale attività “genitore” da cui deriva questa.
+atpActivity → Flag interno (Garmin) per classificazione attività.
+workoutId → ID dell’allenamento strutturato associato.
+⏱️ Tempi
+startTimeLocal → Ora di inizio nel fuso locale.
+startTimeGMT → Ora di inizio in GMT.
+endTimeGMT → Ora di fine in GMT.
+beginTimestamp → Timestamp numerico di inizio attività.
+timeZoneId → Fuso orario dell’attività.
+📏 Distanza e velocità
+distance → Distanza totale percorsa (metri).
+duration → Durata totale dell’attività (secondi).
+elapsedDuration → Durata totale inclusi pause/stop.
+movingDuration → Tempo effettivo in movimento.
+averageSpeed → Velocità media.
+maxSpeed → Velocità massima raggiunta.
+avgStrideLength → Lunghezza media del passo.
+avgVerticalSpeed → Velocità verticale media (salita/discesa).
+maxVerticalSpeed → Velocità verticale massima.
+🏔️ Altimetria
+elevationGain → Dislivello positivo totale (metri salita). --> Non necessaria
+elevationLoss → Dislivello negativo totale. --> Non necessaria
+minElevation → Altitudine minima raggiunta. --> Non necessaria
+maxElevation → Altitudine massima raggiunta. --> Non necessaria
+avgElevation → Altitudine media. --> Non necessaria
+elevationCorrected → Indica se i dati altimetrici sono corretti. --> Non necessaria
+floorsClimbed → Piani saliti (stima). --> Non necessaria
+floorsDescended → Piani scesi (stima). --> Non necessaria
+❤️ Frequenza cardiaca
+averageHR → Frequenza cardiaca media.
+maxHR → Frequenza cardiaca massima.
+hrTimeInZone_1 → 5 → Tempo trascorso in ciascuna zona cardiaca.
+👣 Corsa / movimento
+averageRunningCadenceInStepsPerMinute → Cadenza media (passi/min).
+maxRunningCadenceInStepsPerMinute → Cadenza massima.
+steps → Numero totale di passi.
+maxDoubleCadence → Cadenza massima conteggiando entrambi i piedi.
+jumpCount → Numero di salti (per attività specifiche).
+🔥 Calorie
+calories → Calorie totali bruciate. --> Non necessaria
+bmrCalories → Calorie basali consumate. --> Non necessaria
+autoCalcCalories → Indica se le calorie sono calcolate automaticamente. --> Non necessaria
+🏁 Split e lap
+fastestSplit_1000 → 42195 → Miglior tempo su varie distanze (1km, miglio, 5k, ecc.).
+splitSummaries → Riassunto dettagliato degli split.
+hasSplits → Indica se ci sono split registrati.
+lapCount → Numero di lap (giri).
+minActivityLapDuration → Durata minima di un lap.
+📍 Posizione
+startLatitude / startLongitude → Coordinate di partenza. --> Non necessaria
+endLatitude / endLongitude → Coordinate di arrivo. --> Non necessaria
+locationName → Nome del luogo dell’attività. --> Non necessaria
+hasPolyline → Indica se esiste la traccia GPS. --> Non necessaria
+⚡ Intensità e performance
+moderateIntensityMinutes → Minuti in intensità moderata.
+vigorousIntensityMinutes → Minuti in intensità alta.
+vO2MaxValue → Stima del VO2 max.
+hasIntensityIntervals → Indica presenza di intervalli.
+hasHeatMap → Indica se esiste una heatmap del percorso.
+👤 Utente e dispositivo
+ownerId → ID dell’utente.
+ownerDisplayName → Nome visualizzato utente.
+ownerFullName → Nome completo utente.
+ownerProfileImageUrl... → URL immagine profilo.
+userRoles → Ruoli dell’utente (es. atleta).
+userPro → Indica se l’utente è premium.
+deviceId → ID del dispositivo usato.
+manufacturer → Marca del dispositivo.
+🏊 Nuoto (se presente)
+averageSwimCadenceInStrokesPerMinute → Bracciate al minuto. --> Non necessaria
+averageSwolf → Efficienza nuoto (tempo + bracciate). --> Non necessaria
+activeLengths → Vasche nuotate attivamente. --> Non necessaria
+poolLength → Lunghezza piscina. --> Non necessaria
+unitOfPoolLength → Unità di misura piscina. --> Non necessaria
+strokes → Numero totale bracciate. --> Non necessaria
+avgStrokeDistance → Distanza media per bracciata. --> Non necessaria
+avgStrokes → Media bracciate per vasca. --> Non necessaria
+surfaceInterval → Tempo in superficie (subacquea). --> Non necessaria
+🔒 Altro
+privacy → Livello di privacy dell’attività.
+favorite → Indica se è tra i preferiti.
+pr → Indica se è un record personale.
+hasImages → Presenza di immagini. --> Non necessaria
+hasVideo → Presenza di video. --> Non necessaria
+waterEstimated → Dati stimati per attività in acqua. --> Non necessaria
+decoDive → Indica se è un’immersione con decompressione. --> Non necessaria
+qualifyingDive → Indica immersione qualificante. --> Non necessaria
+summarizedDiveInfo → Riassunto dati immersione. --> Non necessaria

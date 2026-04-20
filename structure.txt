@@ -1,0 +1,7 @@
+src/
+├── infrastructure/
+│   ├── clientGarmin.py     # Gestisce i token e il login
+│   └── garmin_utils.py     # Gestisce il download di massa delle attività
+├── full_data.py            # Script per scaricare e salvare i dati completi
+├── simplified_data.py      # Script per scaricare e salvare i dati essenziali
+└── dashboard.py            # Visualizzazione

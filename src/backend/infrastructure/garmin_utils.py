@@ -1,3 +1,4 @@
+# Function to fetch all activities from Garmin Connect using pagination
 def fetch_all_activities(client):
     all_activities = []
     start = 0

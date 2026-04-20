@@ -1,6 +1,6 @@
 import pandas as pd
-from infrastructure.client_garmin import get_client
-from infrastructure.garmin_utils import fetch_all_activities
+from backend.infrastructure.client_garmin import get_client
+from backend.infrastructure.garmin_utils import fetch_all_activities
 
 def fetch_simplified_data():
     client = get_client()

@@ -1,6 +1,6 @@
 import pandas as pd
-from infrastructure.client_garmin import get_client
-from infrastructure.garmin_utils import fetch_all_activities
+from backend.infrastructure.client_garmin import get_client
+from backend.infrastructure.garmin_utils import fetch_all_activities
 
 # Function to fetch Garmin data with all the attributes, and save the running activities to CSV
 def fetch_full_datas():

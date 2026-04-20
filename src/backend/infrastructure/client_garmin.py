@@ -13,7 +13,7 @@ from garminconnect import (
 load_dotenv()
 email = os.getenv("GARMIN_EMAIL")
 password = os.getenv("GARMIN_PASSWORD")
-token_dir = str(Path(__file__).parent.parent.parent / ".garminconnect")
+token_dir = str(Path(__file__).parent.parent.parent.parent / ".garminconnect")
 
 # Function to get Garmin client with token management
 def get_client():
