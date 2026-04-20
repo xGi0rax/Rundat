@@ -1,0 +1,21 @@
+# Credentials
+.env
+
+# Sessions and Garmin tokens
+.garminconnect/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Personal data (Optional, but recommended for privacy)
+*.csv
+
+# Cache of Python
+__pycache__/
+*.py[cod]
+
+# System/Editor folders
+.vscode/
+.DS_Store
