@@ -1,26 +1,13 @@
-import os
 import pandas as pd
-from dotenv import load_dotenv
-from garminconnect import Garmin
+from infrastructure.clientGarmin import get_client
 
-# Credentials loading
-load_dotenv()
-email = os.getenv("GARMIN_EMAIL")
-password = os.getenv("GARMIN_PASSWORD")
-token_path = ".session"
-
-def update_garmin_data():
-    if not os.path.exists(token_path):
-        os.makedirs(token_path)
+def fetch_simplified_data():
+    client = get_client()
 
     try:
-        # Connection to Garmin
-        print("First login with existing session...")
-        client = Garmin(email, password, tokenstore=token_path)
-        client.login()
-
+        # TODO: Prendere tutte le attività
         # Fetching activities (last 30 activities)
-        print("Fetching last 30 activities...")
+        print("Downloading last 30 activities...")
         activities = client.get_activities(0, 30)
 
         # Conversion in DataFrame Pandas
@@ -47,4 +34,4 @@ def update_garmin_data():
         print(f"Error: {e}")
 
 if __name__ == "__main__":
-    update_garmin_data()
+    fetch_simplified_data()

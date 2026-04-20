@@ -2,7 +2,7 @@
 .env
 
 # Sessions and Garmin tokens
-.session/
+.garminconnect/
 
 # Virtual environments
 venv/
