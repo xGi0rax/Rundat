@@ -19,3 +19,5 @@ __pycache__/
 # System/Editor folders
 .vscode/
 .DS_Store
+
+.idea/
