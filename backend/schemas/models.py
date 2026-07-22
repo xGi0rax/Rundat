@@ -1,10 +1,11 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
 class ApiModel(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
 
 class ActivitySummary(ApiModel):
@@ -39,3 +40,15 @@ class DashboardSummary(ApiModel):
     average_pace_decimal: float | None = Field(default=None, alias="averagePaceDecimal", ge=0)
     latest_activity: ActivitySummary | None = Field(default=None, alias="latestActivity")
     personal_bests: dict[str, PersonalBest] = Field(alias="personalBests")
+
+
+class SyncRun(ApiModel):
+    id: int
+    source: Literal["csv", "garmin"]
+    status: Literal["running", "success", "failed"]
+    started_at: datetime = Field(alias="startedAt")
+    finished_at: datetime | None = Field(default=None, alias="finishedAt")
+    inserted_count: int = Field(alias="insertedCount", ge=0)
+    updated_count: int = Field(alias="updatedCount", ge=0)
+    skipped_count: int = Field(alias="skippedCount", ge=0)
+    error_message: str | None = Field(default=None, alias="errorMessage")

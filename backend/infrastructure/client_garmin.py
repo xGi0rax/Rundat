@@ -1,5 +1,4 @@
 import os
-import sys
 from dotenv import load_dotenv
 from pathlib import Path
 from garminconnect import (
@@ -35,11 +34,8 @@ def get_client():
         print("✅ Login OK, tokens saved")
         return client
     except GarminConnectTooManyRequestsError:
-        print("🚫 429. Wait at least 1 hour.")
-        sys.exit(1)
+        raise RuntimeError("Garmin rate limit reached. Wait at least 1 hour.")
     except GarminConnectAuthenticationError as e:
-        print(f"❌ Authentication error: {e}")
-        sys.exit(1)
+        raise RuntimeError(f"Garmin authentication error: {e}") from e
     except Exception as e:
-        print(f"❌ Error: {e}")
-        sys.exit(1)
+        raise RuntimeError(f"Garmin connection error: {e}") from e

@@ -1,3 +1,3 @@
-from .models import ActivitySummary, DashboardSummary, PersonalBest
+from .models import ActivitySummary, DashboardSummary, PersonalBest, SyncRun
 
-__all__ = ["ActivitySummary", "DashboardSummary", "PersonalBest"]
+__all__ = ["ActivitySummary", "DashboardSummary", "PersonalBest", "SyncRun"]

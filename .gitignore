@@ -11,6 +11,9 @@ env/
 
 # Personal data (Optional, but recommended for privacy)
 *.csv
+*.db
+*.db-shm
+*.db-wal
 
 # Cache of Python
 __pycache__/

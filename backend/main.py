@@ -1,9 +1,25 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from data_processor import get_activity_summaries, get_dashboard_summary, get_personal_bests
-from schemas import ActivitySummary, DashboardSummary, PersonalBest
+from contextlib import asynccontextmanager
 
-app = FastAPI(title="Rundat API", version="1.0.0")
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+
+from data_processor import CSV_FILE
+from schemas import ActivitySummary, DashboardSummary, PersonalBest, SyncRun
+from services.activity_repository import count_activities
+from services.activity_service import get_activities, get_dashboard, get_personal_bests
+from services.database import initialize_database
+from services.sync_service import list_sync_runs, sync_csv, sync_garmin
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    initialize_database()
+    if count_activities() == 0 and CSV_FILE.exists():
+        sync_csv()
+    yield
+
+
+app = FastAPI(title="Rundat API", version="2.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -15,35 +31,38 @@ app.add_middleware(
 
 
 @app.get("/api/activities", response_model=list[ActivitySummary])
-def get_activities():
-    try:
-        data = get_activity_summaries()
-        return data
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        print(f"Errore: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+def activities_endpoint():
+    return get_activities()
 
 
 @app.get("/api/pbs", response_model=dict[str, PersonalBest])
-def get_pbs():
-    try:
-        data = get_personal_bests()
-        return data
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        print(f"Errore: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+def personal_bests_endpoint():
+    return get_personal_bests()
 
 
 @app.get("/api/dashboard", response_model=DashboardSummary)
-def get_dashboard():
+def dashboard_endpoint():
+    return get_dashboard()
+
+
+@app.post("/api/sync/csv", response_model=SyncRun)
+def sync_csv_endpoint():
     try:
-        return get_dashboard_summary()
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        print(f"Errore: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        return sync_csv()
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except Exception as error:
+        raise HTTPException(status_code=500, detail="Sincronizzazione CSV non riuscita.") from error
+
+
+@app.post("/api/sync/garmin", response_model=SyncRun)
+def sync_garmin_endpoint():
+    try:
+        return sync_garmin()
+    except Exception as error:
+        raise HTTPException(status_code=502, detail="Sincronizzazione Garmin non riuscita.") from error
+
+
+@app.get("/api/sync/history", response_model=list[SyncRun])
+def sync_history_endpoint(limit: int = Query(default=20, ge=1, le=100)):
+    return list_sync_runs(limit)
