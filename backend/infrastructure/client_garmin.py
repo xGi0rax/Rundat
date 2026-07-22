@@ -1,5 +1,4 @@
 import os
-import sys
 from dotenv import load_dotenv
 from pathlib import Path
 from garminconnect import (
@@ -13,7 +12,7 @@ from garminconnect import (
 load_dotenv()
 email = os.getenv("GARMIN_EMAIL")
 password = os.getenv("GARMIN_PASSWORD")
-token_dir = str(Path(__file__).parent.parent / ".garminconnect")
+token_dir = str(Path(__file__).parent.parent.parent.parent / ".garminconnect")
 
 # Function to get Garmin client with token management
 def get_client():
@@ -35,15 +34,8 @@ def get_client():
         print("✅ Login OK, tokens saved")
         return client
     except GarminConnectTooManyRequestsError:
-        print("🚫 429. Wait at least 1 hour.")
-        sys.exit(1)
+        raise RuntimeError("Garmin rate limit reached. Wait at least 1 hour.")
     except GarminConnectAuthenticationError as e:
-        print(f"❌ Authentication error: {e}")
-        sys.exit(1)
+        raise RuntimeError(f"Garmin authentication error: {e}") from e
     except Exception as e:
-        print(f"❌ Error: {e}")
-        sys.exit(1)
-
-
-if __name__ == "__main__":
-    get_client()
+        raise RuntimeError(f"Garmin connection error: {e}") from e

@@ -11,6 +11,9 @@ env/
 
 # Personal data (Optional, but recommended for privacy)
 *.csv
+*.db
+*.db-shm
+*.db-wal
 
 # Cache of Python
 __pycache__/
@@ -19,3 +22,5 @@ __pycache__/
 # System/Editor folders
 .vscode/
 .DS_Store
+
+.idea/
