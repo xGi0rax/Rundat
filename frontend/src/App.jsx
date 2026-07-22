@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 function App() {
@@ -17,19 +17,19 @@ function App() {
   }, []);
 
   return (
-    <div style={{ padding: '20px', fontFamily: 'sans-serif', backgroundColor: '#1a1a1a', color: 'white', minHeight: '100vh' }}>
+    <div style={{ padding: '20px', fontFamily: 'sans-serif', backgroundColor: '#ffffff', color: 'black', minHeight: '100vh' }}>
       <h1>🏃 Rundat Dashboard</h1>
       
-      <div style={{ backgroundColor: '#2a2a2a', padding: '20px', borderRadius: '10px', marginBottom: '20px' }}>
+      <div style={{ backgroundColor: '#ffffff', padding: '20px', borderRadius: '10px', marginBottom: '20px' }}>
         <h3>Ultime 10 Corse (km)</h3>
         <div style={{ width: '100%', height: 300 }}>
           <ResponsiveContainer>
             <BarChart data={activities}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#444" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#232020" />
               <XAxis dataKey="startTimeLocal" tickFormatter={(str) => str.split('T')[0]} stroke="#ccc" />
               <YAxis stroke="#ccc" />
               <Tooltip 
-                contentStyle={{ backgroundColor: '#333', border: 'none', color: 'white' }}
+                contentStyle={{ backgroundColor: '#ffffff', border: 'none', color: 'black' }}
                 labelFormatter={(str) => `Data: ${str.split('T')[0]}`}
               />
               <Bar dataKey="km" fill="#8884d8" radius={[4, 4, 0, 0]} />
@@ -40,7 +40,7 @@ function App() {
 
       <table border="1" style={{ width: '100%', borderCollapse: 'collapse', borderColor: '#444' }}>
         <thead>
-          <tr style={{ backgroundColor: '#333' }}>
+          <tr style={{ backgroundColor: '#f0f0f0' }}>
             <th>Data</th>
             <th>Distanza (km)</th>
             <th>FC Media</th>
