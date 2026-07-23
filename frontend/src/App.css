@@ -295,12 +295,79 @@
   align-items: center;
 }
 
+.analytics-period-settings {
+  display: grid;
+  justify-items: end;
+  gap: 10px;
+}
+
 .analytics-top-period {
   flex-wrap: wrap;
 }
 
 .analytics-top-period button {
   min-width: 48px;
+}
+
+.monday-alignment-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.monday-alignment-control input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.analytics-date-navigation {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.analytics-date-range {
+  display: grid;
+  min-width: 250px;
+  gap: 3px;
+  color: var(--muted);
+}
+
+.analytics-date-range strong {
+  color: var(--ink);
+  font-size: 1.25rem;
+}
+
+.date-navigation-button {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: 0 4px 14px rgba(38, 54, 41, 0.06);
+  font-size: 1.15rem;
+  cursor: pointer;
+}
+
+.date-navigation-button:hover:not(:disabled) {
+  border-color: #b9c8b5;
+  color: var(--accent-dark);
+  background: var(--accent-soft);
+}
+
+.date-navigation-button:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
 }
 
 .period-metrics-grid {
@@ -327,6 +394,20 @@
   border-color: #b9c8b5;
   box-shadow: 0 18px 46px rgba(38, 54, 41, 0.12);
   transform: translateY(-2px);
+}
+
+.period-metric-card-static {
+  cursor: default;
+}
+
+.period-metric-card-primary > strong {
+  font-size: clamp(1.65rem, 3vw, 2.35rem);
+}
+
+.period-metric-card-static:hover {
+  border-color: var(--line);
+  box-shadow: var(--shadow);
+  transform: none;
 }
 
 .period-metric-card > span,
@@ -882,6 +963,10 @@ tbody tr:hover {
   .period-metrics-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .period-metric-card-static {
+    grid-column: span 1;
+  }
 }
 
 @media (max-width: 640px) {
@@ -935,6 +1020,21 @@ tbody tr:hover {
     width: 100%;
   }
 
+  .analytics-period-settings {
+    display: grid;
+    width: 100%;
+    justify-items: start;
+  }
+
+  .analytics-date-navigation {
+    justify-content: space-between;
+  }
+
+  .analytics-date-range {
+    min-width: 0;
+    text-align: center;
+  }
+
   .period-control {
     width: 100%;
   }
@@ -974,6 +1074,10 @@ tbody tr:hover {
 
   .period-metric-card > strong {
     font-size: 1.25rem;
+  }
+
+  .period-metric-card-primary > strong {
+    font-size: 1.45rem;
   }
 
   .metric-modal-backdrop {

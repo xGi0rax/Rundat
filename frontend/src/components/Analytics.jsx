@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Area,
   AreaChart,
@@ -13,13 +13,35 @@ import {
 } from 'recharts'
 import { formatDate, formatDistance, formatDuration, formatPaceDecimal } from '../utils/formatters.js'
 
-const periods = [
-  { value: 7, label: '7 giorni' },
-  { value: 14, label: '14 giorni' },
-  { value: 30, label: '30 giorni' },
-  { value: 60, label: '60 giorni' },
-  { value: 90, label: '90 giorni' },
-]
+const periods = [7, 14, 30, 60, 90, 180]
+const shortMonth = new Intl.DateTimeFormat('it-IT', { month: 'short' })
+
+const metricDefinitions = {
+  longest: {
+    eyebrow: 'Distanza',
+    title: 'Corsa più lunga',
+    description: 'La corsa più lunga di ogni settimana.',
+    color: '#ef5b24',
+  },
+  daily: {
+    eyebrow: 'Volume',
+    title: 'Media giornaliera',
+    description: 'La distanza media giornaliera di ogni settimana.',
+    color: '#315e3b',
+  },
+  pace: {
+    eyebrow: 'Ritmo',
+    title: 'Passo medio',
+    description: 'Il passo medio ponderato di ogni settimana.',
+    color: '#345f9d',
+  },
+  heartRate: {
+    eyebrow: 'Intensità',
+    title: 'FC media',
+    description: 'La frequenza cardiaca media di ogni settimana.',
+    color: '#b5533c',
+  },
+}
 
 function beginningOfWeek(date) {
   const result = new Date(date)
@@ -29,6 +51,37 @@ function beginningOfWeek(date) {
   return result
 }
 
+function startOfDay(date) {
+  const result = new Date(date)
+  result.setHours(0, 0, 0, 0)
+  return result
+}
+
+function endOfDay(date) {
+  const result = new Date(date)
+  result.setHours(23, 59, 59, 999)
+  return result
+}
+
+function shiftDays(date, days) {
+  const result = new Date(date)
+  result.setDate(result.getDate() + days)
+  return result
+}
+
+function firstMondayOnOrAfter(date) {
+  const result = startOfDay(date)
+  const dayFromMonday = (result.getDay() + 6) % 7
+  if (dayFromMonday !== 0) result.setDate(result.getDate() + (7 - dayFromMonday))
+  return result
+}
+
+function inclusiveCalendarDays(start, end) {
+  const startUtc = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate())
+  const endUtc = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate())
+  return Math.max(1, Math.round((endUtc - startUtc) / 86400000) + 1)
+}
+
 function localDateKey(date) {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -36,38 +89,11 @@ function localDateKey(date) {
   return `${year}-${month}-${day}`
 }
 
-function weeklyVolume(activities, period) {
-  const weeks = new Map()
-  activities.forEach((activity) => {
-    const week = beginningOfWeek(new Date(activity.startTimeLocal))
-    const key = localDateKey(week)
-    const current = weeks.get(key) ?? { date: key, km: 0, runs: 0, duration: 0, elevation: 0 }
-    current.km += Number(activity.km) || 0
-    current.runs += 1
-    current.duration += Number(activity.duration) || 0
-    current.elevation += Number(activity.elevationGain) || 0
-    weeks.set(key, current)
-  })
-
-  if (activities.length === 0) return []
-  const today = new Date()
-  const firstActivity = new Date(Math.min(...activities.map((activity) => new Date(activity.startTimeLocal))))
-  const start = period === 'all'
-    ? beginningOfWeek(firstActivity)
-    : beginningOfWeek(new Date(today.getFullYear(), today.getMonth(), today.getDate() - period))
-  const end = beginningOfWeek(today)
-  const result = []
-
-  for (const cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 7)) {
-    const key = localDateKey(cursor)
-    const week = weeks.get(key) ?? { date: key, km: 0, runs: 0, duration: 0, elevation: 0 }
-    result.push({
-      ...week,
-      km: Number(week.km.toFixed(2)),
-      elevation: Math.round(week.elevation),
-    })
-  }
-  return result
+function activityDistanceKm(activity) {
+  const km = Number(activity.km)
+  if (Number.isFinite(km)) return km
+  const metres = Number(activity.distance)
+  return Number.isFinite(metres) ? metres / 1000 : 0
 }
 
 function weekRangeLabel(value) {
@@ -77,12 +103,133 @@ function weekRangeLabel(value) {
   return `${formatDate(monday)} – ${formatDate(sunday)}`
 }
 
+function createContinuousWeeks(start, end) {
+  const weeks = []
+  for (const cursor = beginningOfWeek(start); cursor <= end; cursor.setDate(cursor.getDate() + 7)) {
+    weeks.push({
+      date: localDateKey(cursor),
+      km: 0,
+      runs: 0,
+      duration: 0,
+      elevation: 0,
+      longest: null,
+      heartRateTotal: 0,
+      heartRateCount: 0,
+    })
+  }
+  return weeks
+}
+
+function aggregateWeeks(activities, start, end) {
+  const weeks = createContinuousWeeks(start, end)
+  const byDate = new Map(weeks.map((week) => [week.date, week]))
+
+  activities.forEach((activity) => {
+    const activityDate = new Date(activity.startTimeLocal)
+    if (Number.isNaN(activityDate.getTime()) || activityDate < start || activityDate > end) return
+
+    const week = byDate.get(localDateKey(beginningOfWeek(activityDate)))
+    if (!week) return
+
+    const distance = activityDistanceKm(activity)
+    const heartRate = Number(activity.averageHR)
+    week.km += distance
+    week.runs += 1
+    week.duration += Number(activity.duration) || 0
+    week.elevation += Number(activity.elevationGain) || 0
+    week.longest = week.longest == null ? distance : Math.max(week.longest, distance)
+    if (Number.isFinite(heartRate)) {
+      week.heartRateTotal += heartRate
+      week.heartRateCount += 1
+    }
+  })
+
+  return weeks.map((week) => ({
+    ...week,
+    km: Number(week.km.toFixed(2)),
+    elevation: Math.round(week.elevation),
+  }))
+}
+
+function addTrend(weeks) {
+  const count = weeks.length
+  if (count === 0) return { data: [], average: 0 }
+
+  const average = weeks.reduce((sum, week) => sum + week.km, 0) / count
+  if (count === 1) {
+    return { average, data: weeks.map((week) => ({ ...week, trendKm: week.km })) }
+  }
+
+  const xAverage = (count - 1) / 2
+  const numerator = weeks.reduce(
+    (sum, week, index) => sum + (index - xAverage) * (week.km - average),
+    0,
+  )
+  const denominator = weeks.reduce(
+    (sum, _week, index) => sum + ((index - xAverage) ** 2),
+    0,
+  )
+  const slope = denominator ? numerator / denominator : 0
+  const intercept = average - slope * xAverage
+
+  return {
+    average,
+    data: weeks.map((week, index) => ({
+      ...week,
+      trendKm: Math.max(0, intercept + slope * index),
+    })),
+  }
+}
+
+function historyForMetric(activities, metric, months) {
+  const end = new Date()
+  const rawStart = new Date(end)
+  rawStart.setMonth(rawStart.getMonth() - months)
+  const start = beginningOfWeek(rawStart)
+
+  return aggregateWeeks(activities, start, end).map((week) => {
+    let value = null
+    if (metric === 'longest') value = week.longest ?? 0
+    if (metric === 'daily') value = week.km / 7
+    if (metric === 'pace') value = week.km > 0 ? (week.duration / 60) / week.km : null
+    if (metric === 'heartRate') {
+      value = week.heartRateCount ? week.heartRateTotal / week.heartRateCount : null
+    }
+    return { ...week, value }
+  })
+}
+
+function monthLabel(value) {
+  return shortMonth.format(new Date(`${value}T00:00:00`)).replace('.', '')
+}
+
+function monthTicks(data) {
+  let previousMonth = null
+  return data.reduce((ticks, point) => {
+    const date = new Date(`${point.date}T00:00:00`)
+    const month = `${date.getFullYear()}-${date.getMonth()}`
+    if (month !== previousMonth) {
+      ticks.push(point.date)
+      previousMonth = month
+    }
+    return ticks
+  }, [])
+}
+
+function formatMetric(metric, value) {
+  if (value == null || !Number.isFinite(Number(value))) return '—'
+  if (metric === 'pace') return `${formatPaceDecimal(value)} /km`
+  if (metric === 'heartRate') return `${Math.round(value)} bpm`
+  return formatDistance(value)
+}
+
 function WeeklyDot({ cx, cy, payload, selectedDate, onSelect }) {
   const selected = payload.date === selectedDate
   const select = (event) => {
     event.stopPropagation()
     onSelect(payload.date)
   }
+
   return (
     <g
       className="weekly-point"
@@ -109,73 +256,343 @@ function WeeklyDot({ cx, cy, payload, selectedDate, onSelect }) {
   )
 }
 
-function addTrend(weeks) {
-  const count = weeks.length
-  if (count === 0) return { data: [], average: 0 }
-  const average = weeks.reduce((sum, week) => sum + week.km, 0) / count
-  if (count === 1) return { data: weeks.map((week) => ({ ...week, trendKm: week.km })), average }
+function MetricModal({ activities, metric, onClose }) {
+  const [months, setMonths] = useState(6)
+  const definition = metricDefinitions[metric]
+  const data = useMemo(
+    () => historyForMetric(activities, metric, months),
+    [activities, metric, months],
+  )
+  const visibleValues = data.map((point) => point.value).filter(Number.isFinite)
+  const averageValues = visibleValues
+  const historyAverage = averageValues.length
+    ? averageValues.reduce((sum, value) => sum + value, 0) / averageValues.length
+    : null
+  const hasMetricData = ['longest', 'daily'].includes(metric)
+    ? data.some((point) => point.runs > 0)
+    : visibleValues.length > 0
+  const maximumDistance = visibleValues.length ? Math.max(...visibleValues) : 0
+  const visibleMilestones = metric === 'longest'
+    ? [5, 10, 21.1, 42.195].filter((distance) => distance <= maximumDistance)
+    : []
+  const visibleMonthTicks = monthTicks(data)
 
-  const xAverage = (count - 1) / 2
-  const numerator = weeks.reduce((sum, week, index) => sum + (index - xAverage) * (week.km - average), 0)
-  const denominator = weeks.reduce((sum, _, index) => sum + ((index - xAverage) ** 2), 0)
-  const slope = denominator ? numerator / denominator : 0
-  const intercept = average - slope * xAverage
-  return {
-    average,
-    data: weeks.map((week, index) => ({ ...week, trendKm: Math.max(0, intercept + slope * index) })),
+  useEffect(() => {
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', closeOnEscape)
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', closeOnEscape)
+      document.body.style.overflow = ''
+    }
+  }, [onClose])
+
+  const yTickFormatter = (value) => {
+    if (metric === 'pace') return formatPaceDecimal(value)
+    if (metric === 'heartRate') return Math.round(value)
+    if (metric === 'longest') {
+      const milestoneLabels = { 5: '5K', 10: '10K', 21.1: '21,1K', 42.195: '42,2K' }
+      return milestoneLabels[value] ?? `${Number(value).toLocaleString('it-IT')} km`
+    }
+    return Number(value).toLocaleString('it-IT', { maximumFractionDigits: 1 })
   }
-}
 
-function ChartPanel({ eyebrow, title, description, children, empty, className = '' }) {
   return (
-    <article className={`panel analytics-panel ${className}`}>
-      <div className="panel-heading">
-        <div>
-          <p className="eyebrow">{eyebrow}</p>
-          <h2>{title}</h2>
-          <p>{description}</p>
+    <div className="metric-modal-backdrop" onMouseDown={onClose}>
+      <section
+        className="metric-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="metric-modal-title"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <header className="metric-modal-header">
+          <div>
+            <p className="eyebrow">{definition.eyebrow}</p>
+            <h2 id="metric-modal-title">{definition.title}</h2>
+            <p>{definition.description}</p>
+          </div>
+          <button className="modal-close" type="button" onClick={onClose} aria-label="Chiudi">
+            x
+          </button>
+        </header>
+
+        <div className="modal-range-control" role="group" aria-label="Intervallo storico">
+          <button
+            type="button"
+            className={months === 1 ? 'active' : ''}
+            aria-pressed={months === 1}
+            onClick={() => setMonths(1)}
+          >
+            Ultimo mese
+          </button>
+          <button
+            type="button"
+            className={months === 2 ? 'active' : ''}
+            aria-pressed={months === 2}
+            onClick={() => setMonths(2)}
+          >
+            Ultimi 2 mesi
+          </button>
+          <button
+            type="button"
+            className={months === 6 ? 'active' : ''}
+            aria-pressed={months === 6}
+            onClick={() => setMonths(6)}
+          >
+            Ultimi 6 mesi
+          </button>
+          <button
+            type="button"
+            className={months === 12 ? 'active' : ''}
+            aria-pressed={months === 12}
+            onClick={() => setMonths(12)}
+          >
+            Ultimo anno
+          </button>
         </div>
-      </div>
-      {empty ? <p className="chart-empty">Dati insufficienti per questo grafico.</p> : <div className="analytics-chart">{children}</div>}
-    </article>
+
+        <div className="metric-modal-chart">
+          {!hasMetricData ? (
+            <p className="chart-empty">Nessun dato disponibile per questo intervallo.</p>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={data} margin={{ top: 22, right: 22, left: 4, bottom: 4 }}>
+                <CartesianGrid vertical={false} stroke="#e1e4df" />
+                <XAxis
+                  dataKey="date"
+                  ticks={visibleMonthTicks}
+                  tickFormatter={monthLabel}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  orientation="right"
+                  tickFormatter={yTickFormatter}
+                  tickLine={false}
+                  axisLine={false}
+                  width={metric === 'pace' ? 48 : 58}
+                  ticks={metric === 'longest' && visibleMilestones.length
+                    ? [0, ...visibleMilestones]
+                    : undefined}
+                  domain={metric === 'pace' || metric === 'heartRate'
+                    ? ['auto', 'auto']
+                    : [0, 'auto']}
+                  padding={['longest', 'daily'].includes(metric) ? { bottom: 10 } : undefined}
+                  reversed={metric === 'pace'}
+                />
+                <Tooltip
+                  formatter={(value) => [formatMetric(metric, value), definition.title]}
+                  labelFormatter={(value) => weekRangeLabel(value)}
+                />
+                {historyAverage != null && (
+                  <ReferenceLine
+                    y={historyAverage}
+                    stroke="#667068"
+                    strokeWidth={2}
+                    strokeDasharray="7 5"
+                    label={{
+                      value: `Media ${formatMetric(metric, historyAverage)}`,
+                      position: 'insideTopLeft',
+                      fill: '#667068',
+                      fontSize: 12,
+                      fontWeight: 700,
+                    }}
+                  />
+                )}
+                {visibleMilestones.map((distance) => (
+                  <ReferenceLine
+                    key={distance}
+                    y={distance}
+                    stroke="#d4a08b"
+                    strokeDasharray="3 5"
+                  />
+                ))}
+                <Line
+                  type="linear"
+                  dataKey="value"
+                  name={definition.title}
+                  stroke={definition.color}
+                  strokeWidth={3}
+                  connectNulls
+                  dot={false}
+                  activeDot={{ r: 5 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      </section>
+    </div>
   )
 }
 
 function Analytics({ activities }) {
-  const [period, setPeriod] = useState(90)
+  const [period, setPeriod] = useState(30)
+  const [periodOffset, setPeriodOffset] = useState(0)
+  const [alignToMonday, setAlignToMonday] = useState(false)
   const [selectedWeekKey, setSelectedWeekKey] = useState(null)
   const [showWeeklyAverage, setShowWeeklyAverage] = useState(false)
   const [showWeeklyTrend, setShowWeeklyTrend] = useState(false)
+  const [openMetric, setOpenMetric] = useState(null)
 
-  const filtered = useMemo(() => {
-    if (period === 'all') return activities
-    const cutoff = new Date()
-    cutoff.setDate(cutoff.getDate() - period)
-    return activities.filter((activity) => new Date(activity.startTimeLocal) >= cutoff)
-  }, [activities, period])
+  const dateRange = useMemo(() => {
+    const now = new Date()
+    const today = startOfDay(now)
 
-  const chronological = useMemo(
-    () => [...filtered].sort((a, b) => new Date(a.startTimeLocal) - new Date(b.startTimeLocal)),
-    [filtered],
-  )
-  const weeks = useMemo(() => weeklyVolume(filtered, period), [filtered, period])
-  const weeklyAnalysis = useMemo(() => addTrend(weeks), [weeks])
-  const selectedWeek = weeklyAnalysis.data.find((week) => week.date === selectedWeekKey) ?? weeklyAnalysis.data.at(-1)
-  const paceData = chronological.filter((activity) => activity.paceDecimal != null)
-  const heartRateData = chronological.filter((activity) => activity.averageHR != null)
-
-  const totals = useMemo(() => {
-    const distance = filtered.reduce((sum, activity) => sum + Number(activity.distance || 0), 0)
-    const duration = filtered.reduce((sum, activity) => sum + Number(activity.duration || 0), 0)
-    const heartRates = filtered.map((activity) => Number(activity.averageHR)).filter(Number.isFinite)
-    const elevation = filtered.reduce((sum, activity) => sum + Number(activity.elevationGain || 0), 0)
-    return {
-      distanceKm: distance / 1000,
-      averagePace: distance > 0 ? (duration / 60) / (distance / 1000) : null,
-      averageHeartRate: heartRates.length ? heartRates.reduce((sum, value) => sum + value, 0) / heartRates.length : null,
-      elevation,
+    if (!alignToMonday) {
+      const endDate = shiftDays(today, -(period * periodOffset))
+      const start = shiftDays(endDate, -(period - 1))
+      return {
+        start,
+        end: periodOffset === 0 ? now : endOfDay(endDate),
+      }
     }
-  }, [filtered])
+
+    const exactCurrentStart = shiftDays(today, -(period - 1))
+    const currentStart = firstMondayOnOrAfter(exactCurrentStart)
+    const currentWeekStart = beginningOfWeek(today)
+    const weeksInBlock = Math.round(
+      (currentWeekStart - currentStart) / (7 * 86400000),
+    ) + 1
+
+    if (periodOffset === 0) return { start: currentStart, end: now }
+
+    const start = shiftDays(currentStart, -(periodOffset * weeksInBlock * 7))
+    const nextBlockStart = shiftDays(
+      currentStart,
+      -((periodOffset - 1) * weeksInBlock * 7),
+    )
+    return { start, end: new Date(nextBlockStart.getTime() - 1) }
+  }, [alignToMonday, period, periodOffset])
+
+  const filtered = useMemo(
+    () => activities.filter((activity) => {
+      const date = new Date(activity.startTimeLocal)
+      return date >= dateRange.start && date <= dateRange.end
+    }),
+    [activities, dateRange],
+  )
+
+  const weeklyAnalysis = useMemo(
+    () => addTrend(aggregateWeeks(activities, dateRange.start, dateRange.end)),
+    [activities, dateRange],
+  )
+  const selectedWeek = weeklyAnalysis.data.find((week) => week.date === selectedWeekKey)
+    ?? weeklyAnalysis.data.at(-1)
+
+  const periodMetrics = useMemo(() => {
+    const totalDistance = filtered.reduce(
+      (sum, activity) => sum + activityDistanceKm(activity),
+      0,
+    )
+    const totalDuration = filtered.reduce(
+      (sum, activity) => sum + (Number(activity.duration) || 0),
+      0,
+    )
+    const heartRates = filtered
+      .map((activity) => Number(activity.averageHR))
+      .filter(Number.isFinite)
+    const longestActivity = filtered.reduce((longest, activity) => (
+      !longest || activityDistanceKm(activity) > activityDistanceKm(longest)
+        ? activity
+        : longest
+    ), null)
+    const representedDays = inclusiveCalendarDays(dateRange.start, dateRange.end)
+
+    return {
+      totalDistance,
+      totalDuration,
+      averageRunDistance: filtered.length ? totalDistance / filtered.length : null,
+      runCount: filtered.length,
+      longest: longestActivity ? activityDistanceKm(longestActivity) : null,
+      longestDate: longestActivity ? longestActivity.startTimeLocal : null,
+      daily: totalDistance / representedDays,
+      pace: totalDistance > 0 ? (totalDuration / 60) / totalDistance : null,
+      heartRate: heartRates.length
+        ? heartRates.reduce((sum, value) => sum + value, 0) / heartRates.length
+        : null,
+    }
+  }, [filtered, dateRange])
+
+  const selectPeriod = (value) => {
+    setPeriod(value)
+    setPeriodOffset(0)
+    setSelectedWeekKey(null)
+  }
+
+  const showPreviousPeriod = () => {
+    setPeriodOffset((value) => value + 1)
+    setSelectedWeekKey(null)
+  }
+
+  const showNextPeriod = () => {
+    setPeriodOffset((value) => Math.max(0, value - 1))
+    setSelectedWeekKey(null)
+  }
+
+  const metricCards = [
+    {
+      key: 'runCount',
+      label: 'Corse effettuate',
+      value: periodMetrics.runCount.toLocaleString('it-IT'),
+      detail: 'Numero di corse nell\'intervallo',
+      interactive: false,
+    },
+    {
+      key: 'totalDistance',
+      label: 'Distanza totale',
+      value: formatDistance(periodMetrics.totalDistance),
+      detail: 'Totale dell’intervallo mostrato',
+      interactive: false,
+      primary: true,
+    },
+    {
+      key: 'totalDuration',
+      label: 'Tempo totale',
+      value: formatDuration(periodMetrics.totalDuration),
+      detail: 'Tempo di corsa nell’intervallo',
+      interactive: false,
+      primary: true,
+    },
+    {
+      key: 'averageRunDistance',
+      label: 'Distanza media per corsa',
+      value: formatDistance(periodMetrics.averageRunDistance),
+      detail: 'Media delle corse effettuate',
+      interactive: false,
+    },
+    {
+      key: 'longest',
+      label: 'Corsa più lunga',
+      value: formatMetric('longest', periodMetrics.longest),
+      detail: periodMetrics.longestDate ? formatDate(periodMetrics.longestDate) : 'Nessuna corsa',
+      interactive: true,
+    },
+    {
+      key: 'daily',
+      label: 'Media giornaliera',
+      value: formatMetric('daily', periodMetrics.daily),
+      detail: 'Distanza media per giorno',
+      interactive: true,
+    },
+    {
+      key: 'pace',
+      label: 'Passo medio',
+      value: formatMetric('pace', periodMetrics.pace),
+      detail: 'Ponderato sulla distanza',
+      interactive: true,
+    },
+    {
+      key: 'heartRate',
+      label: 'FC media',
+      value: formatMetric('heartRate', periodMetrics.heartRate),
+      detail: 'Media delle attività',
+      interactive: true,
+    },
+  ]
 
   return (
     <div className="page-stack">
@@ -183,163 +600,246 @@ function Analytics({ activities }) {
         <div>
           <p className="eyebrow">Approfondimenti</p>
           <h1>Le metriche nel tempo.</h1>
-
+          <p>Esplora il volume e l'andamento delle tue corse nel periodo scelto.</p>
         </div>
-      </section>
-
-      {filtered.length === 0 ? (
-        <section className="panel analytics-empty">
-          <h2>Nessuna corsa nel periodo selezionato</h2>
-          <p>Scegli un intervallo più ampio per visualizzare i grafici.</p>
-          <div className="period-control empty-period-control" role="group" aria-label="Periodo di analisi">
-            {periods.map((option) => (
+        <div className="analytics-period-settings">
+          <div className="period-control analytics-top-period" role="group" aria-label="Periodo di analisi">
+            {periods.map((value) => (
               <button
                 type="button"
-                key={option.value}
-                className={period === option.value ? 'active' : ''}
-                aria-pressed={period === option.value}
-                onClick={() => {
-                  setPeriod(option.value)
-                  setSelectedWeekKey(null)
-                }}
+                key={value}
+                className={period === value ? 'active' : ''}
+                aria-pressed={period === value}
+                onClick={() => selectPeriod(value)}
               >
-                {option.label}
+                {value}g
               </button>
             ))}
           </div>
-        </section>
-      ) : (
-        <>
-          <section className="analytics-summary" aria-label="Riepilogo del periodo">
-            <div><span>Attività</span><strong>{filtered.length}</strong></div>
-            <div><span>Distanza</span><strong>{formatDistance(totals.distanceKm)}</strong></div>
-            <div><span>Passo medio</span><strong>{formatPaceDecimal(totals.averagePace)} /km</strong></div>
-            <div><span>FC media</span><strong>{totals.averageHeartRate ? `${Math.round(totals.averageHeartRate)} bpm` : '—'}</strong></div>
-            <div><span>Dislivello</span><strong>{Math.round(totals.elevation).toLocaleString('it-IT')} m</strong></div>
-          </section>
+          <label className="monday-alignment-control">
+            <input
+              type="checkbox"
+              checked={alignToMonday}
+              onChange={(event) => {
+                setAlignToMonday(event.target.checked)
+                setPeriodOffset(0)
+                setSelectedWeekKey(null)
+              }}
+            />
+            Fai partire il periodo da lunedì
+          </label>
+        </div>
+      </section>
 
-          <section className="analytics-grid">
-            <ChartPanel eyebrow="Volume" title="Distanza settimanale" description="Tocca una settimana per vederne i totali." empty={weeks.length === 0} className="weekly-progress-panel">
-              {selectedWeek && (
-                <div className="weekly-progress-summary" aria-live="polite">
-                  <div className="weekly-progress-title">
-                    <span>{selectedWeek.date === weeks.at(-1)?.date ? 'Questa settimana' : 'Settimana selezionata'}</span>
-                    <small>{weekRangeLabel(selectedWeek.date)}</small>
-                  </div>
-                  <strong>{formatDistance(selectedWeek.km)}</strong>
-                  <div className="weekly-progress-details">
-                    <span><b>{formatDuration(selectedWeek.duration)}</b> tempo</span>
-                    <span><b>{selectedWeek.elevation.toLocaleString('it-IT')} m</b> dislivello</span>
-                    <span><b>{selectedWeek.runs}</b> {selectedWeek.runs === 1 ? 'corsa' : 'corse'}</span>
-                  </div>
-                </div>
-              )}
-              <div className="period-control weekly-period-control" role="group" aria-label="Periodo di analisi">
-                {periods.map((option) => (
-                  <button
-                    type="button"
-                    key={option.value}
-                    className={period === option.value ? 'active' : ''}
-                    aria-pressed={period === option.value}
-                    onClick={() => {
-                      setPeriod(option.value)
-                      setSelectedWeekKey(null)
+      <div className="analytics-date-navigation">
+        <button
+          type="button"
+          className="date-navigation-button"
+          onClick={showPreviousPeriod}
+          aria-label={`Mostra i ${period} giorni precedenti`}
+          title={`Vai indietro di ${period} giorni`}
+        >
+          ←
+        </button>
+        <div className="analytics-date-range" aria-live="polite">
+          <strong>
+            {formatDate(dateRange.start)} – {formatDate(dateRange.end)}
+          </strong>
+        </div>
+        <button
+          type="button"
+          className="date-navigation-button"
+          onClick={showNextPeriod}
+          disabled={periodOffset === 0}
+          aria-label={`Mostra i ${period} giorni successivi`}
+          title={periodOffset === 0 ? 'Sei già nel periodo attuale' : `Vai avanti di ${period} giorni`}
+        >
+          →
+        </button>
+      </div>
+
+      <section className="period-metrics-grid" aria-label={`Metriche degli ultimi ${period} giorni`}>
+        {metricCards.map((card) => {
+          const content = (
+            <>
+              <span>{card.label}</span>
+              <strong>{card.value}</strong>
+              <small>{card.detail}</small>
+              {card.interactive && <em>Vedi andamento storico →</em>}
+            </>
+          )
+
+          return card.interactive ? (
+            <button
+              type="button"
+              className="period-metric-card"
+              key={card.key}
+              onClick={() => setOpenMetric(card.key)}
+              aria-label={`${card.label}: ${card.value}. Apri andamento storico`}
+            >
+              {content}
+            </button>
+          ) : (
+            <article
+              className={`period-metric-card period-metric-card-static${card.primary ? ' period-metric-card-primary' : ''}`}
+              key={card.key}
+            >
+              {content}
+            </article>
+          )
+        })}
+      </section>
+
+      <article className="panel analytics-panel weekly-progress-panel">
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Volume</p>
+            <h2>Distanza settimanale</h2>
+            <p>Tocca una settimana per vederne i totali.</p>
+          </div>
+        </div>
+
+        {selectedWeek && (
+          <div className="weekly-progress-summary" aria-live="polite">
+            <div className="weekly-progress-title">
+              <span>
+                {selectedWeek.date === weeklyAnalysis.data.at(-1)?.date
+                  ? 'Questa settimana'
+                  : 'Settimana selezionata'}
+              </span>
+              <small>{weekRangeLabel(selectedWeek.date)}</small>
+            </div>
+            <strong>{formatDistance(selectedWeek.km)}</strong>
+            <div className="weekly-progress-details">
+              <span><b>{formatDuration(selectedWeek.duration)}</b> tempo</span>
+              <span><b>{selectedWeek.elevation.toLocaleString('it-IT')} m</b> dislivello</span>
+              <span><b>{selectedWeek.runs}</b> {selectedWeek.runs === 1 ? 'corsa' : 'corse'}</span>
+            </div>
+          </div>
+        )}
+
+        <div className="weekly-overlays" aria-label="Elementi aggiuntivi del grafico">
+          <label>
+            <input
+              type="checkbox"
+              checked={showWeeklyAverage}
+              onChange={(event) => setShowWeeklyAverage(event.target.checked)}
+            />
+            <span className="overlay-swatch average" aria-hidden="true" />
+            Media settimanale ({formatDistance(weeklyAnalysis.average)})
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={showWeeklyTrend}
+              onChange={(event) => setShowWeeklyTrend(event.target.checked)}
+            />
+            <span className="overlay-swatch trend" aria-hidden="true" />
+            Linea di tendenza
+          </label>
+        </div>
+
+        <div className="weekly-chart-scroll">
+          <div
+            className="analytics-chart weekly-chart"
+            style={{ minWidth: `${Math.max(340, weeklyAnalysis.data.length * 56)}px` }}
+          >
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart
+                data={weeklyAnalysis.data}
+                margin={{ top: 14, right: 18, left: 4, bottom: 0 }}
+                onClick={(state) => {
+                  const week = state?.activePayload?.[0]?.payload
+                  if (week) setSelectedWeekKey(week.date)
+                }}
+              >
+                <CartesianGrid vertical={false} stroke="#d8d9d6" />
+                <XAxis
+                  dataKey="date"
+                  tickFormatter={(value) => formatDate(value, 'short')}
+                  tickLine={false}
+                  axisLine={false}
+                  minTickGap={24}
+                />
+                <YAxis
+                  orientation="right"
+                  tickFormatter={(value) => `${Math.round(value)} km`}
+                  tickLine={false}
+                  axisLine={false}
+                  width={58}
+                  tickCount={3}
+                  domain={[0, 'auto']}
+                />
+                <Tooltip
+                  formatter={(value, name) => [
+                    formatDistance(value),
+                    name === 'trendKm' ? 'Tendenza' : 'Distanza',
+                  ]}
+                  labelFormatter={(value) => weekRangeLabel(value)}
+                  cursor={{ stroke: '#ef5b24', strokeWidth: 2 }}
+                />
+                {selectedWeek && (
+                  <ReferenceLine x={selectedWeek.date} stroke="#ef5b24" strokeWidth={2} />
+                )}
+                {showWeeklyAverage && (
+                  <ReferenceLine
+                    y={weeklyAnalysis.average}
+                    stroke="#315e3b"
+                    strokeWidth={2}
+                    strokeDasharray="6 5"
+                    label={{
+                      value: formatDistance(weeklyAnalysis.average),
+                      position: 'insideTopLeft',
+                      fill: '#315e3b',
+                      fontSize: 12,
+                      fontWeight: 700,
                     }}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-              <div className="weekly-overlays" aria-label="Elementi aggiuntivi del grafico">
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={showWeeklyAverage}
-                    onChange={(event) => setShowWeeklyAverage(event.target.checked)}
                   />
-                  <span className="overlay-swatch average" aria-hidden="true" />
-                  Media settimanale ({formatDistance(weeklyAnalysis.average)})
-                </label>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={showWeeklyTrend}
-                    onChange={(event) => setShowWeeklyTrend(event.target.checked)}
+                )}
+                <Area
+                  type="linear"
+                  dataKey="km"
+                  stroke="#ef5b24"
+                  strokeWidth={4}
+                  fill="#fbd8c7"
+                  fillOpacity={0.9}
+                  cursor="pointer"
+                  dot={(props) => (
+                    <WeeklyDot
+                      {...props}
+                      selectedDate={selectedWeek?.date}
+                      onSelect={setSelectedWeekKey}
+                    />
+                  )}
+                  activeDot={false}
+                  onClick={(entry) => {
+                    if (entry?.date) setSelectedWeekKey(entry.date)
+                  }}
+                />
+                {showWeeklyTrend && (
+                  <Line
+                    type="linear"
+                    dataKey="trendKm"
+                    stroke="#345f9d"
+                    strokeWidth={3}
+                    strokeDasharray="9 5"
+                    dot={false}
+                    activeDot={false}
+                    isAnimationActive={false}
                   />
-                  <span className="overlay-swatch trend" aria-hidden="true" />
-                  Linea di tendenza
-                </label>
-              </div>
-              <div className="weekly-chart-scroll">
-                <div className="analytics-chart weekly-chart" style={{ minWidth: `${Math.max(340, weeklyAnalysis.data.length * 28)}px` }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={weeklyAnalysis.data} margin={{ top: 14, right: 18, left: 4, bottom: 0 }} onClick={(state) => {
-                      const week = state?.activePayload?.[0]?.payload
-                      if (week) setSelectedWeekKey(week.date)
-                    }}>
-                      <CartesianGrid vertical={false} stroke="#d8d9d6" />
-                      <XAxis dataKey="date" tickFormatter={(value) => formatDate(value, 'short')} tickLine={false} axisLine={false} minTickGap={24} />
-                      <YAxis orientation="right" tickFormatter={(value) => `${Math.round(value)} km`} tickLine={false} axisLine={false} width={58} tickCount={3} domain={[0, 'auto']} />
-                      <Tooltip formatter={(value, name) => [`${Number(value).toFixed(2)} km`, name === 'trendKm' ? 'Tendenza' : 'Distanza']} labelFormatter={(value) => weekRangeLabel(value)} cursor={{ stroke: '#ef5b24', strokeWidth: 2 }} />
-                      {selectedWeek && <ReferenceLine x={selectedWeek.date} stroke="#ef5b24" strokeWidth={2} />}
-                      {showWeeklyAverage && <ReferenceLine y={weeklyAnalysis.average} stroke="#315e3b" strokeWidth={2} strokeDasharray="6 5" />}
-                      <Area
-                        type="linear"
-                        dataKey="km"
-                        stroke="#ef5b24"
-                        strokeWidth={4}
-                        fill="#fbd8c7"
-                        fillOpacity={0.9}
-                        cursor="pointer"
-                        dot={(props) => <WeeklyDot {...props} selectedDate={selectedWeek?.date} onSelect={setSelectedWeekKey} />}
-                        activeDot={false}
-                        onClick={(entry) => {
-                          if (entry?.date) setSelectedWeekKey(entry.date)
-                        }}
-                      />
-                      {showWeeklyTrend && (
-                        <Line
-                          type="linear"
-                          dataKey="trendKm"
-                          stroke="#345f9d"
-                          strokeWidth={3}
-                          strokeDasharray="9 5"
-                          dot={false}
-                          activeDot={false}
-                          isAnimationActive={false}
-                        />
-                      )}
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            </ChartPanel>
+                )}
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </article>
 
-            <ChartPanel eyebrow="Ritmo" title="Andamento del passo" description="Passo medio di ogni attività: più in basso significa più veloce." empty={paceData.length === 0}>
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={paceData} margin={{ top: 10, right: 12, left: -8, bottom: 0 }}>
-                  <CartesianGrid vertical={false} stroke="#e7e9e5" />
-                  <XAxis dataKey="startTimeLocal" tickFormatter={(value) => formatDate(value, 'short')} tickLine={false} axisLine={false} minTickGap={28} />
-                  <YAxis tickFormatter={formatPaceDecimal} tickLine={false} axisLine={false} domain={['auto', 'auto']} reversed />
-                  <Tooltip formatter={(value) => [`${formatPaceDecimal(value)} /km`, 'Passo']} labelFormatter={(value) => formatDate(value)} />
-                  <Line type="monotone" dataKey="paceDecimal" stroke="#315e3b" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartPanel>
-
-            <ChartPanel eyebrow="Intensità" title="Frequenza cardiaca" description="Frequenza cardiaca media registrata per ciascuna corsa." empty={heartRateData.length === 0}>
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={heartRateData} margin={{ top: 10, right: 12, left: -8, bottom: 0 }}>
-                  <CartesianGrid vertical={false} stroke="#e7e9e5" />
-                  <XAxis dataKey="startTimeLocal" tickFormatter={(value) => formatDate(value, 'short')} tickLine={false} axisLine={false} minTickGap={28} />
-                  <YAxis tickLine={false} axisLine={false} domain={['dataMin - 10', 'dataMax + 10']} />
-                  <Tooltip formatter={(value) => [`${Math.round(value)} bpm`, 'FC media']} labelFormatter={(value) => formatDate(value)} />
-                  <Line type="monotone" dataKey="averageHR" stroke="#b5533c" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartPanel>
-          </section>
-        </>
+      {openMetric && (
+        <MetricModal
+          activities={activities}
+          metric={openMetric}
+          onClose={() => setOpenMetric(null)}
+        />
       )}
     </div>
   )
