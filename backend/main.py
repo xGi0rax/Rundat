@@ -60,7 +60,7 @@ def sync_garmin_endpoint():
     try:
         return sync_garmin()
     except Exception as error:
-        raise HTTPException(status_code=502, detail="Sincronizzazione Garmin non riuscita.") from error
+        raise HTTPException(status_code=502, detail=str(error)) from error
 
 
 @app.get("/api/sync/history", response_model=list[SyncRun])

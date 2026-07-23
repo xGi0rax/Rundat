@@ -27,7 +27,7 @@ function MetricCard({ label, value, detail }) {
   )
 }
 
-function Dashboard({ summary, activities }) {
+function Dashboard({ summary, activities, syncState, onSync }) {
   const chartData = activities.slice(0, 10).reverse()
   const records = Object.entries(summary.personalBests)
 
@@ -39,20 +39,28 @@ function Dashboard({ summary, activities }) {
           <h1>La tua corsa, in sintesi.</h1>
           <p>Distanze, ritmo e progressi aggiornati con le ultime attività.</p>
         </div>
-        {summary.latestActivity && (
-          <aside className="latest-run">
-            <span>Ultima corsa</span>
-            <strong>{formatDistance(summary.latestActivity.km)}</strong>
-            <small>{formatDate(summary.latestActivity.startTimeLocal, 'long')}</small>
-          </aside>
-        )}
+        <div className="dashboard-actions">
+          <button
+            type="button"
+            className="sync-button"
+            onClick={onSync}
+            disabled={syncState.status === 'loading'}
+          >
+            <span className={syncState.status === 'loading' ? 'sync-icon is-spinning' : 'sync-icon'} aria-hidden="true">↻</span>
+            {syncState.status === 'loading' ? 'Sincronizzazione…' : 'Sincronizza Garmin'}
+          </button>
+          {syncState.message && (
+            <p className={`sync-message ${syncState.status}`} role={syncState.status === 'error' ? 'alert' : 'status'}>
+              {syncState.message}
+            </p>
+          )}
+        </div>
       </section>
 
       <section className="metrics-grid" aria-label="Metriche principali">
         <MetricCard label="Corse registrate" value={summary.totalActivities.toLocaleString('it-IT')} />
         <MetricCard label="Distanza totale" value={formatDistance(summary.totalDistanceKm)} />
         <MetricCard label="Ultimi 7 giorni" value={formatDistance(summary.last7DaysDistanceKm)} />
-        <MetricCard label="Passo medio" value={summary.averagePace ? `${summary.averagePace} /km` : '—'} detail="Ponderato sulla distanza" />
       </section>
 
       <section className="dashboard-grid">

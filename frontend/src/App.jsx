@@ -1,17 +1,20 @@
 import { useCallback, useEffect, useState } from 'react'
 import './App.css'
 import Activities from './components/Activities.jsx'
+import Analytics from './components/Analytics.jsx'
 import Dashboard from './components/Dashboard.jsx'
 import StatusPanel from './components/StatusPanel.jsx'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000'
 
 function currentView() {
-  return window.location.hash === '#activities' ? 'activities' : 'dashboard'
+  if (window.location.hash === '#activities') return 'activities'
+  if (window.location.hash === '#analytics') return 'analytics'
+  return 'dashboard'
 }
 
-async function fetchJson(path, signal) {
-  const response = await fetch(`${API_URL}${path}`, { signal })
+async function fetchJson(path, options = {}) {
+  const response = await fetch(`${API_URL}${path}`, options)
   if (!response.ok) {
     const body = await response.json().catch(() => null)
     throw new Error(body?.detail ?? `Il server ha risposto con errore ${response.status}.`)
@@ -25,6 +28,7 @@ function App() {
   const [status, setStatus] = useState('loading')
   const [error, setError] = useState('')
   const [requestId, setRequestId] = useState(0)
+  const [syncState, setSyncState] = useState({ status: 'idle', message: '' })
 
   const loadData = useCallback(() => {
     setStatus('loading')
@@ -43,8 +47,8 @@ function App() {
     const controller = new AbortController()
 
     Promise.all([
-      fetchJson('/api/dashboard', controller.signal),
-      fetchJson('/api/activities', controller.signal),
+      fetchJson('/api/dashboard', { signal: controller.signal }),
+      fetchJson('/api/activities', { signal: controller.signal }),
     ])
       .then(([dashboard, activities]) => {
         setData({ dashboard, activities })
@@ -60,6 +64,28 @@ function App() {
     return () => controller.abort()
   }, [requestId])
 
+  const syncGarmin = async () => {
+    setSyncState({ status: 'loading', message: 'Sincronizzazione con Garmin in corso…' })
+    try {
+      const result = await fetchJson('/api/sync/garmin', { method: 'POST' })
+      const [dashboard, activities] = await Promise.all([
+        fetchJson('/api/dashboard'),
+        fetchJson('/api/activities'),
+      ])
+      const changed = result.insertedCount + result.updatedCount
+      const message = changed > 0
+        ? `${result.insertedCount} nuove, ${result.updatedCount} aggiornate.`
+        : 'Tutto aggiornato: nessuna nuova attività.'
+      setData({ dashboard, activities })
+      setSyncState({ status: 'success', message })
+    } catch (reason) {
+      setSyncState({
+        status: 'error',
+        message: reason.message || 'Non è stato possibile sincronizzare Garmin.',
+      })
+    }
+  }
+
   return (
     <div className="app-shell">
       <header className="site-header">
@@ -74,6 +100,9 @@ function App() {
           <a href="#activities" aria-current={view === 'activities' ? 'page' : undefined}>
             Attività
           </a>
+          <a href="#analytics" aria-current={view === 'analytics' ? 'page' : undefined}>
+            Analisi
+          </a>
         </nav>
       </header>
 
@@ -82,10 +111,18 @@ function App() {
         {status === 'error' && <StatusPanel type="error" message={error} onRetry={loadData} />}
         {status === 'success' && data.activities.length === 0 && <StatusPanel type="empty" />}
         {status === 'success' && data.activities.length > 0 && view === 'dashboard' && (
-          <Dashboard summary={data.dashboard} activities={data.activities} />
+          <Dashboard
+            summary={data.dashboard}
+            activities={data.activities}
+            syncState={syncState}
+            onSync={syncGarmin}
+          />
         )}
         {status === 'success' && data.activities.length > 0 && view === 'activities' && (
           <Activities activities={data.activities} />
+        )}
+        {status === 'success' && data.activities.length > 0 && view === 'analytics' && (
+          <Analytics activities={data.activities} />
         )}
       </main>
     </div>
