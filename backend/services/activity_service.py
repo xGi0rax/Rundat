@@ -4,14 +4,7 @@ from typing import Any
 
 from data_processor import calc_pace_decimal, calculate_pace
 from services.activity_repository import list_activities
-
-DISTANCE_RANGES = {
-    "1k": (0.9, 1.1),
-    "5k": (4.9, 5.2),
-    "10k": (9.8, 10.2),
-    "Half Marathon": (20.9, 21.3),
-    "Full Marathon": (41.9, 42.5),
-}
+from services.personal_record_repository import list_personal_record_history, list_personal_records
 
 
 def get_activities(db_path: Path | None = None) -> list[dict[str, Any]]:
@@ -19,24 +12,33 @@ def get_activities(db_path: Path | None = None) -> list[dict[str, Any]]:
 
 
 def get_personal_bests(
-    activities: list[dict[str, Any]] | None = None,
     db_path: Path | None = None,
 ) -> dict[str, dict[str, Any]]:
-    activities = activities if activities is not None else list_activities(db_path)
     records = {}
-    for name, (minimum, maximum) in DISTANCE_RANGES.items():
-        candidates = [activity for activity in activities if minimum <= activity["km"] <= maximum]
-        if not candidates:
-            continue
-        best = min(candidates, key=lambda activity: activity["duration"])
-        records[name] = {
-            "distance": best["km"],
-            "date": str(best["startTimeLocal"])[:10],
-            "time": _format_duration(best["duration"]),
-            "pace": best["pace"],
-            "hr": best["averageHR"],
+    for record in list_personal_records(db_path):
+        distance = record["distance_km"]
+        duration = record["duration"]
+        records[record["record_key"]] = {
+            "distance": distance,
+            "date": record["record_date"],
+            "time": _format_duration(duration),
+            "pace": calculate_pace((distance * 1000) / duration) if duration > 0 else None,
+            "hr": record["average_hr"],
         }
     return records
+
+
+def get_personal_best_history(db_path: Path | None = None) -> list[dict[str, Any]]:
+    return [
+        {
+            "recordKey": record["record_key"],
+            "distance": record["distance_km"],
+            "duration": record["duration"],
+            "date": record["record_date"],
+            "observedAt": record["observed_at"],
+        }
+        for record in list_personal_record_history(db_path)
+    ]
 
 
 def get_dashboard(now: datetime | None = None, db_path: Path | None = None) -> dict[str, Any]:
@@ -58,7 +60,7 @@ def get_dashboard(now: datetime | None = None, db_path: Path | None = None) -> d
         "averagePace": calculate_pace(average_speed) if average_speed else None,
         "averagePaceDecimal": calc_pace_decimal(average_speed) if average_speed else None,
         "latestActivity": activities[0] if activities else None,
-        "personalBests": get_personal_bests(activities),
+        "personalBests": get_personal_bests(db_path),
     }
 
 

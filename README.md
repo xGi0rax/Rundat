@@ -17,7 +17,7 @@ Endpoint disponibili:
 - `GET /api/pbs`: record personali per distanza;
 - `GET /api/dashboard`: riepilogo aggregato della dashboard.
 - `POST /api/sync/csv`: importazione incrementale del CSV;
-- `POST /api/sync/garmin`: sincronizzazione incrementale da Garmin Connect;
+- `POST /api/sync/garmin`: sincronizzazione incrementale delle attività e dei record personali da Garmin Connect;
 - `GET /api/sync/history`: storico delle ultime sincronizzazioni.
 
 Il CSV viene cercato in `backend/running_activities_FULL.csv`, indipendentemente

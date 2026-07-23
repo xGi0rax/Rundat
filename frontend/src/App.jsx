@@ -4,12 +4,14 @@ import Activities from './components/Activities.jsx'
 import Analytics from './components/Analytics.jsx'
 import Dashboard from './components/Dashboard.jsx'
 import StatusPanel from './components/StatusPanel.jsx'
+import Trends from './components/Trends.jsx'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000'
 
 function currentView() {
   if (window.location.hash === '#activities') return 'activities'
   if (window.location.hash === '#analytics') return 'analytics'
+  if (window.location.hash === '#trends') return 'trends'
   return 'dashboard'
 }
 
@@ -24,7 +26,7 @@ async function fetchJson(path, options = {}) {
 
 function App() {
   const [view, setView] = useState(currentView)
-  const [data, setData] = useState({ dashboard: null, activities: [] })
+  const [data, setData] = useState({ dashboard: null, activities: [], recordHistory: [] })
   const [status, setStatus] = useState('loading')
   const [error, setError] = useState('')
   const [requestId, setRequestId] = useState(0)
@@ -49,9 +51,10 @@ function App() {
     Promise.all([
       fetchJson('/api/dashboard', { signal: controller.signal }),
       fetchJson('/api/activities', { signal: controller.signal }),
+      fetchJson('/api/pbs/history', { signal: controller.signal }),
     ])
-      .then(([dashboard, activities]) => {
-        setData({ dashboard, activities })
+      .then(([dashboard, activities, recordHistory]) => {
+        setData({ dashboard, activities, recordHistory })
         setStatus('success')
       })
       .catch((reason) => {
@@ -68,15 +71,16 @@ function App() {
     setSyncState({ status: 'loading', message: 'Sincronizzazione con Garmin in corso…' })
     try {
       const result = await fetchJson('/api/sync/garmin', { method: 'POST' })
-      const [dashboard, activities] = await Promise.all([
+      const [dashboard, activities, recordHistory] = await Promise.all([
         fetchJson('/api/dashboard'),
         fetchJson('/api/activities'),
+        fetchJson('/api/pbs/history'),
       ])
       const changed = result.insertedCount + result.updatedCount
       const message = changed > 0
         ? `${result.insertedCount} nuove, ${result.updatedCount} aggiornate.`
         : 'Tutto aggiornato: nessuna nuova attività.'
-      setData({ dashboard, activities })
+      setData({ dashboard, activities, recordHistory })
       setSyncState({ status: 'success', message })
     } catch (reason) {
       setSyncState({
@@ -103,6 +107,9 @@ function App() {
           <a href="#analytics" aria-current={view === 'analytics' ? 'page' : undefined}>
             Analisi
           </a>
+          <a href="#trends" aria-current={view === 'trends' ? 'page' : undefined}>
+            Trend
+          </a>
         </nav>
       </header>
 
@@ -123,6 +130,9 @@ function App() {
         )}
         {status === 'success' && data.activities.length > 0 && view === 'analytics' && (
           <Analytics activities={data.activities} />
+        )}
+        {status === 'success' && data.activities.length > 0 && view === 'trends' && (
+          <Trends activities={data.activities} recordHistory={data.recordHistory} />
         )}
       </main>
     </div>

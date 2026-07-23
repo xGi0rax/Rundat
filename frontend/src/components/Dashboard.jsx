@@ -36,7 +36,7 @@ function Dashboard({ summary, activities, syncState, onSync }) {
       <section className="page-heading">
         <div>
           <p className="eyebrow">Panoramica</p>
-          <h1>La tua corsa, in sintesi.</h1>
+          <h1>La mia corsa, in sintesi.</h1>
           <p>Distanze, ritmo e progressi aggiornati con le ultime attività.</p>
         </div>
         <div className="dashboard-actions">
@@ -55,12 +55,6 @@ function Dashboard({ summary, activities, syncState, onSync }) {
             </p>
           )}
         </div>
-      </section>
-
-      <section className="metrics-grid" aria-label="Metriche principali">
-        <MetricCard label="Corse registrate" value={summary.totalActivities.toLocaleString('it-IT')} />
-        <MetricCard label="Distanza totale" value={formatDistance(summary.totalDistanceKm)} />
-        <MetricCard label="Ultimi 7 giorni" value={formatDistance(summary.last7DaysDistanceKm)} />
       </section>
 
       <section className="dashboard-grid">
@@ -115,6 +109,17 @@ function Dashboard({ summary, activities, syncState, onSync }) {
             <p className="inline-empty">Nessun record disponibile per le distanze standard.</p>
           )}
         </article>
+      </section>
+
+      <section className="metrics-grid" aria-label="Metriche principali">
+        <MetricCard label="Corse registrate" value={summary.totalActivities.toLocaleString('it-IT')} />
+        <MetricCard label="Distanza totale" value={formatDistance(summary.totalDistanceKm)} />
+        <MetricCard label="Ultimi 7 giorni" value={formatDistance(summary.last7DaysDistanceKm)} />
+        <MetricCard
+          label="Ultima corsa"
+          value={summary.latestActivity ? formatDistance(summary.latestActivity.km) : '—'}
+          detail={summary.latestActivity ? formatDate(summary.latestActivity.startTimeLocal, 'long') : 'Nessuna corsa registrata'}
+        />
       </section>
     </div>
   )

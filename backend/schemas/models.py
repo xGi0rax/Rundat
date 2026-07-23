@@ -32,6 +32,14 @@ class PersonalBest(ApiModel):
     hr: float | None = Field(default=None, ge=0)
 
 
+class PersonalBestHistory(ApiModel):
+    record_key: str = Field(alias="recordKey")
+    distance: float = Field(gt=0, description="Record distance in kilometres")
+    duration: float = Field(ge=0, description="Record duration in seconds")
+    date: str
+    observed_at: datetime = Field(alias="observedAt")
+
+
 class DashboardSummary(ApiModel):
     total_activities: int = Field(alias="totalActivities", ge=0)
     total_distance_km: float = Field(alias="totalDistanceKm", ge=0)

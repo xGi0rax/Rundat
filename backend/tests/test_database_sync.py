@@ -12,9 +12,10 @@ if str(BACKEND_DIR) not in sys.path:
 
 from schemas import DashboardSummary, SyncRun
 from services.activity_repository import count_activities
-from services.activity_service import get_activities, get_dashboard
+from services.activity_service import get_activities, get_dashboard, get_personal_best_history
 from services.database import initialize_database
-from services.sync_service import list_sync_runs, sync_csv
+from services.personal_record_repository import replace_personal_records
+from services.sync_service import list_sync_runs, normalize_personal_records, sync_csv
 
 
 class DatabaseSyncTests(unittest.TestCase):
@@ -81,6 +82,43 @@ class DatabaseSyncTests(unittest.TestCase):
         self.assertEqual(dashboard.total_distance_km, 15)
         self.assertEqual(dashboard.last_7_days_distance_km, 5)
         self.assertEqual(dashboard.latest_activity.activity_id, 101)
+
+    def test_dashboard_uses_personal_records_returned_by_garmin(self):
+        sync_csv(self.csv_path, self.db_path)
+        records = normalize_personal_records(
+            [
+                {
+                    "id": 501,
+                    "typeId": 3,
+                    "activityId": 101,
+                    "activityStartDateTimeLocalFormatted": "2026-07-20T08:00:00",
+                    "value": 1450,
+                },
+                {
+                    "id": 502,
+                    "typeId": 2,
+                    "activityId": 101,
+                    "activityStartDateTimeLocalFormatted": "2026-07-20T08:00:00",
+                    "value": 430,
+                },
+            ]
+        )
+        replace_personal_records(records, self.db_path)
+
+        dashboard = DashboardSummary.model_validate(
+            get_dashboard(datetime(2026, 7, 22, 12, 0), self.db_path)
+        )
+        five_k = dashboard.personal_bests["5k"]
+
+        self.assertEqual(set(dashboard.personal_bests), {"5k"})
+        self.assertEqual(five_k.time, "24:10")
+        self.assertEqual(five_k.pace, "4:50")
+        self.assertEqual(five_k.date, "2026-07-20")
+        self.assertEqual(five_k.hr, 150)
+        history = get_personal_best_history(self.db_path)
+        self.assertEqual(len(history), 1)
+        self.assertEqual(history[0]["recordKey"], "5k")
+        self.assertEqual(history[0]["duration"], 1450)
 
 
 if __name__ == "__main__":

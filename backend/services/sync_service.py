@@ -8,6 +8,15 @@ import pandas as pd
 from data_processor import CSV_FILE
 from services.activity_repository import encode_raw_data, latest_activity_start, upsert_activities
 from services.database import connect
+from services.personal_record_repository import replace_personal_records
+
+GARMIN_RUNNING_RECORD_TYPES = {
+    1: ("1k", 1.0),
+    3: ("5k", 5.0),
+    4: ("10k", 10.0),
+    5: ("Half Marathon", 21.0975),
+    6: ("Full Marathon", 42.195),
+}
 
 
 def _clean_value(value: Any):
@@ -60,6 +69,82 @@ def _float_or_none(value: Any) -> float | None:
     return None if value is None else float(value)
 
 
+def normalize_personal_records(raw_response: Any) -> list[dict[str, Any]]:
+    normalized = []
+    for raw in _find_personal_records(raw_response):
+        type_id = _clean_value(raw.get("typeId"))
+        if type_id is None:
+            continue
+        record_definition = GARMIN_RUNNING_RECORD_TYPES.get(int(type_id))
+        if record_definition is None:
+            continue
+
+        duration = _float_or_none(raw.get("value"))
+        record_date = _personal_record_date(raw)
+        if duration is None or duration < 0 or record_date is None:
+            continue
+
+        record_key, distance_km = record_definition
+        activity_id = _clean_value(raw.get("activityId"))
+        cleaned_raw = {key: _clean_value(value) for key, value in raw.items()}
+        normalized.append(
+            {
+                "record_key": record_key,
+                "type_id": int(type_id),
+                "activity_id": int(activity_id) if activity_id is not None else None,
+                "distance_km": distance_km,
+                "duration": duration,
+                "record_date": record_date,
+                "raw_data": encode_raw_data(cleaned_raw),
+            }
+        )
+    return normalized
+
+
+def _find_personal_records(value: Any) -> list[dict[str, Any]]:
+    if isinstance(value, list):
+        return [record for item in value for record in _find_personal_records(item)]
+    if not isinstance(value, dict):
+        return []
+    if "typeId" in value and "value" in value:
+        return [value]
+    return [record for item in value.values() for record in _find_personal_records(item)]
+
+
+def _personal_record_date(raw: dict[str, Any]) -> str | None:
+    formatted_fields = (
+        "activityStartDateTimeLocalFormatted",
+        "actStartDateTimeInGMTFormatted",
+    )
+    for field in formatted_fields:
+        value = _clean_value(raw.get(field))
+        if value and len(str(value)) >= 10:
+            candidate = str(value)[:10]
+            try:
+                return datetime.fromisoformat(candidate).date().isoformat()
+            except ValueError:
+                pass
+
+    timestamp_fields = (
+        "activityStartDateTimeLocal",
+        "activityStartDateTimeInGMT",
+        "prStartTimeLocal",
+        "prStartTimeGmt",
+    )
+    for field in timestamp_fields:
+        value = _clean_value(raw.get(field))
+        if value is None:
+            continue
+        try:
+            timestamp = float(value)
+            if timestamp > 100_000_000_000:
+                timestamp /= 1000
+            return datetime.fromtimestamp(timestamp).date().isoformat()
+        except (OSError, OverflowError, TypeError, ValueError):
+            continue
+    return None
+
+
 def sync_csv(csv_path: Path | None = None, db_path: Path | None = None) -> dict[str, Any]:
     path = Path(csv_path or CSV_FILE)
     if not path.exists():
@@ -104,6 +189,11 @@ def sync_garmin(db_path: Path | None = None) -> dict[str, Any]:
 
         normalized = [item for item in (normalize_activity(raw) for raw in raw_activities) if item]
         counts = upsert_activities(normalized, db_path)
+        raw_personal_records = client.get_personal_record()
+        replace_personal_records(
+            normalize_personal_records(raw_personal_records),
+            db_path,
+        )
         return _finish_run(run_id, "success", counts, db_path=db_path)
     except Exception as error:
         _finish_run(run_id, "failed", error_message=str(error), db_path=db_path)

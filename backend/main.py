@@ -4,9 +4,14 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from data_processor import CSV_FILE
-from schemas import ActivitySummary, DashboardSummary, PersonalBest, SyncRun
+from schemas import ActivitySummary, DashboardSummary, PersonalBest, PersonalBestHistory, SyncRun
 from services.activity_repository import count_activities
-from services.activity_service import get_activities, get_dashboard, get_personal_bests
+from services.activity_service import (
+    get_activities,
+    get_dashboard,
+    get_personal_best_history,
+    get_personal_bests,
+)
 from services.database import initialize_database
 from services.sync_service import list_sync_runs, sync_csv, sync_garmin
 
@@ -38,6 +43,11 @@ def activities_endpoint():
 @app.get("/api/pbs", response_model=dict[str, PersonalBest])
 def personal_bests_endpoint():
     return get_personal_bests()
+
+
+@app.get("/api/pbs/history", response_model=list[PersonalBestHistory])
+def personal_best_history_endpoint():
+    return get_personal_best_history()
 
 
 @app.get("/api/dashboard", response_model=DashboardSummary)
