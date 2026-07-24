@@ -28,3 +28,11 @@ export function formatDuration(seconds) {
     ? `${hours}:${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`
     : `${minutes}:${String(remainingSeconds).padStart(2, '0')}`
 }
+
+export function formatPaceDecimal(value) {
+  if (value == null || Number.isNaN(Number(value))) return '—'
+  const totalSeconds = Math.round(Number(value) * 60)
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return `${minutes}:${String(seconds).padStart(2, '0')}`
+}

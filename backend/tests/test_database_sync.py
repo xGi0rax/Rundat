@@ -12,9 +12,16 @@ if str(BACKEND_DIR) not in sys.path:
 
 from schemas import DashboardSummary, SyncRun
 from services.activity_repository import count_activities
-from services.activity_service import get_activities, get_dashboard
+from services.activity_service import get_activities, get_dashboard, get_personal_best_history
 from services.database import initialize_database
-from services.sync_service import list_sync_runs, sync_csv
+from services.personal_record_repository import replace_personal_records
+from services.sync_service import (
+    list_sync_runs,
+    normalize_activity,
+    normalize_hr_zones,
+    normalize_personal_records,
+    sync_csv,
+)
 
 
 class DatabaseSyncTests(unittest.TestCase):
@@ -72,6 +79,50 @@ class DatabaseSyncTests(unittest.TestCase):
         self.assertEqual(count_activities(self.db_path), 2)
         self.assertEqual(activities[0]["activityName"], "Updated name")
 
+    def test_csv_and_garmin_zone_shapes_are_normalized_and_persisted(self):
+        self.rows[0].update(
+            {
+                "hrTimeInZone_1": 120,
+                "hrTimeInZone_2": 600,
+                "hrTimeInZone_3": 480,
+                "hrTimeInZone_4": 240,
+                "hrTimeInZone_5": 60,
+            }
+        )
+        pd.DataFrame(self.rows).to_csv(self.csv_path, index=False)
+        sync_csv(self.csv_path, self.db_path)
+
+        latest = get_activities(self.db_path)[0]
+        self.assertEqual(len(latest["heartRateZones"]), 5)
+        self.assertEqual(latest["heartRateZones"][1]["seconds"], 600)
+        self.assertEqual(latest["heartRateZones"][1]["percentage"], 40)
+
+        garmin_zones = normalize_hr_zones(
+            [
+                {"zoneNumber": 1, "secsInZone": 90, "zoneLowBoundary": 95},
+                {"zoneNumber": 2, "secsInZone": 300, "zoneLowBoundary": 120},
+            ]
+        )
+        self.assertEqual(garmin_zones[0]["high_bpm"], 120)
+        self.assertEqual(garmin_zones[1]["seconds"], 300)
+
+    def test_invalid_numbers_are_rejected_without_crashing_normalization(self):
+        malformed = {**self.rows[0], "distance": "not-a-number"}
+        self.assertIsNone(normalize_activity(malformed))
+
+        zones = normalize_hr_zones(
+            [
+                {"zoneNumber": 1, "secsInZone": "invalid"},
+                {"zoneNumber": 2, "secsInZone": 120, "lowBpm": "invalid"},
+            ]
+        )
+        self.assertEqual(zones, [{
+            "zone_number": 2,
+            "seconds": 120,
+            "low_bpm": None,
+            "high_bpm": None,
+        }])
+
     def test_dashboard_contract_is_preserved_after_migration(self):
         sync_csv(self.csv_path, self.db_path)
         result = get_dashboard(datetime(2026, 7, 22, 12, 0), self.db_path)
@@ -81,6 +132,43 @@ class DatabaseSyncTests(unittest.TestCase):
         self.assertEqual(dashboard.total_distance_km, 15)
         self.assertEqual(dashboard.last_7_days_distance_km, 5)
         self.assertEqual(dashboard.latest_activity.activity_id, 101)
+
+    def test_dashboard_uses_personal_records_returned_by_garmin(self):
+        sync_csv(self.csv_path, self.db_path)
+        records = normalize_personal_records(
+            [
+                {
+                    "id": 501,
+                    "typeId": 3,
+                    "activityId": 101,
+                    "activityStartDateTimeLocalFormatted": "2026-07-20T08:00:00",
+                    "value": 1450,
+                },
+                {
+                    "id": 502,
+                    "typeId": 2,
+                    "activityId": 101,
+                    "activityStartDateTimeLocalFormatted": "2026-07-20T08:00:00",
+                    "value": 430,
+                },
+            ]
+        )
+        replace_personal_records(records, self.db_path)
+
+        dashboard = DashboardSummary.model_validate(
+            get_dashboard(datetime(2026, 7, 22, 12, 0), self.db_path)
+        )
+        five_k = dashboard.personal_bests["5k"]
+
+        self.assertEqual(set(dashboard.personal_bests), {"5k"})
+        self.assertEqual(five_k.time, "24:10")
+        self.assertEqual(five_k.pace, "4:50")
+        self.assertEqual(five_k.date, "2026-07-20")
+        self.assertEqual(five_k.hr, 150)
+        history = get_personal_best_history(self.db_path)
+        self.assertEqual(len(history), 1)
+        self.assertEqual(history[0]["recordKey"], "5k")
+        self.assertEqual(history[0]["duration"], 1450)
 
 
 if __name__ == "__main__":

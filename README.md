@@ -1,43 +1,76 @@
 # Rundat
 
+Dashboard personale per importare attività di corsa da CSV o Garmin Connect e
+analizzare volume, passo, frequenza cardiaca, record e trend.
+
+## Architettura
+
+- `backend/main.py`: API FastAPI e lifecycle applicativo;
+- `backend/domain/`: regole pure di normalizzazione e calcolo;
+- `backend/services/`: casi d'uso, sincronizzazione e repository SQLite;
+- `backend/infrastructure/`: integrazione Garmin Connect;
+- `frontend/src/services/`: accesso all'API;
+- `frontend/src/domain/`: analisi statistiche testabili senza React;
+- `frontend/src/components/`: pagine e componenti di presentazione.
+
+I dati applicativi rimangono in `backend/rundat.db`; credenziali e token Garmin
+rimangono locali e sono esclusi da Git.
+
 ## Avvio locale
 
 ### Backend
 
 ```powershell
-cd backend
-..\.venv\Scripts\uvicorn.exe main:app --reload
+Copy-Item backend\.env.example backend\.env
+# Compilare GARMIN_EMAIL e GARMIN_PASSWORD solo se si usa la sincronizzazione Garmin.
+.\.venv\Scripts\uvicorn.exe main:app --app-dir backend --reload
 ```
 
-La documentazione interattiva è disponibile su `http://127.0.0.1:8000/docs`.
+API: `http://127.0.0.1:8000`; documentazione: `/docs`; health check:
+`GET /api/health`.
 
-Endpoint disponibili:
-
-- `GET /api/activities`: elenco delle attività validate;
-- `GET /api/pbs`: record personali per distanza;
-- `GET /api/dashboard`: riepilogo aggregato della dashboard.
-- `POST /api/sync/csv`: importazione incrementale del CSV;
-- `POST /api/sync/garmin`: sincronizzazione incrementale da Garmin Connect;
-- `GET /api/sync/history`: storico delle ultime sincronizzazioni.
-
-Il CSV viene cercato in `backend/running_activities_FULL.csv`, indipendentemente
-dalla directory da cui viene avviata l'applicazione.
-
-I dati applicativi vengono salvati in `backend/rundat.db`. Al primo avvio il CSV
-esistente viene importato automaticamente. Gli import successivi usano
-`activityId` come chiave univoca e inseriscono, aggiornano o ignorano le attività
-senza creare duplicati. Il percorso del database può essere sovrascritto con la
-variabile d'ambiente `RUNDAT_DB_PATH`.
-
-### Test backend
-
-```powershell
-.\.venv\Scripts\python.exe -m unittest discover -s backend/tests -v
-```
+Il CSV predefinito è `backend/running_activities_FULL.csv`. `activityId` è la
+chiave univoca degli import incrementali. Il database può essere spostato con
+`RUNDAT_DB_PATH`; le origini CORS si configurano, separate da virgola, con
+`RUNDAT_CORS_ORIGINS`.
 
 ### Frontend
 
 ```powershell
-cd frontend
+Set-Location frontend
+npm ci
 npm run dev
 ```
+
+In sviluppo Vite inoltra `/api` al backend locale. In produzione il frontend usa
+la stessa origine; impostare `VITE_API_URL` solo quando l'API è pubblicata su
+un'origine diversa.
+
+## Verifiche prima del rilascio
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s backend\tests -v
+.\.venv\Scripts\python.exe -m compileall -q backend
+
+Set-Location frontend
+npm ci
+npm run check
+```
+
+## Endpoint
+
+- `GET /api/health`
+- `GET /api/activities`
+- `GET /api/pbs`
+- `GET /api/pbs/history`
+- `GET /api/dashboard`
+- `POST /api/sync/csv`
+- `POST /api/sync/garmin`
+- `GET /api/sync/history`
+
+## Nota di sicurezza
+
+Rundat contiene dati sanitari/personali e gli endpoint di sincronizzazione non
+implementano autenticazione utente. È adatto all'esecuzione locale o dietro un
+reverse proxy/VPN con autenticazione e TLS. Non esporre direttamente l'API su
+Internet.

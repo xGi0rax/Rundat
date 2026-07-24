@@ -1,10 +1,10 @@
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
-from pathlib import Path
 from typing import Any
 
-CSV_FILE = Path(__file__).resolve().parent / "running_activities_FULL.csv"
+from config import CSV_FILE
+from domain.activity_metrics import calc_pace_decimal, calculate_pace
 
 def load_and_clean_data():
     if not CSV_FILE.exists():
@@ -42,26 +42,6 @@ def load_and_clean_data():
             )
     # Restituisco ordinato per data decrescente
     return df.sort_values(by='startTimeLocal', ascending=False)
-
-
-# Funzione per calcolare il passo al km (min/km) da velocità in m/s
-def calculate_pace(speed_ms):
-    if pd.isna(speed_ms) or speed_ms <= 0:
-        return None
-
-    # Round to the nearest second before splitting minutes and seconds. This
-    # also handles values such as 4:59.6 correctly, returning 5:00.
-    pace_seconds = int((1000 / speed_ms) + 0.5)
-    minutes, seconds = divmod(pace_seconds, 60)
-    return f"{minutes}:{seconds:02d}"
-
-
-# Funzione per calcolare il passo al km in formato decimale (min/km) da velocità in m/s
-def calc_pace_decimal(speed_ms):
-    if pd.isna(speed_ms) or speed_ms <= 0:
-        return None
-    
-    return round((1000 / speed_ms / 60), 2)
 
 
 # Funzione per restituire la lista di attività come dizionari, con gestione dei NaN e formattazione della data

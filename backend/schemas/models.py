@@ -8,6 +8,14 @@ class ApiModel(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
 
+class HeartRateZone(ApiModel):
+    zone: int = Field(ge=1, le=5)
+    seconds: float = Field(ge=0)
+    percentage: float = Field(ge=0, le=100)
+    low_bpm: float | None = Field(default=None, alias="lowBpm", ge=0)
+    high_bpm: float | None = Field(default=None, alias="highBpm", ge=0)
+
+
 class ActivitySummary(ApiModel):
     activity_id: int = Field(alias="activityId")
     activity_name: str | None = Field(default=None, alias="activityName")
@@ -22,6 +30,10 @@ class ActivitySummary(ApiModel):
     max_hr: float | None = Field(default=None, alias="maxHR", ge=0)
     calories: float | None = Field(default=None, ge=0)
     elevation_gain: float | None = Field(default=None, alias="elevationGain")
+    heart_rate_zones: list[HeartRateZone] = Field(
+        default_factory=list,
+        alias="heartRateZones",
+    )
 
 
 class PersonalBest(ApiModel):
@@ -30,6 +42,14 @@ class PersonalBest(ApiModel):
     time: str
     pace: str | None = None
     hr: float | None = Field(default=None, ge=0)
+
+
+class PersonalBestHistory(ApiModel):
+    record_key: str = Field(alias="recordKey")
+    distance: float = Field(gt=0, description="Record distance in kilometres")
+    duration: float = Field(ge=0, description="Record duration in seconds")
+    date: str
+    observed_at: datetime = Field(alias="observedAt")
 
 
 class DashboardSummary(ApiModel):
@@ -51,4 +71,5 @@ class SyncRun(ApiModel):
     inserted_count: int = Field(alias="insertedCount", ge=0)
     updated_count: int = Field(alias="updatedCount", ge=0)
     skipped_count: int = Field(alias="skippedCount", ge=0)
+    hr_zone_count: int = Field(default=0, alias="hrZoneCount", ge=0)
     error_message: str | None = Field(default=None, alias="errorMessage")
