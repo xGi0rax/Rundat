@@ -12,11 +12,23 @@ import {
 import { formatDate, formatDistance, formatDuration, formatPaceDecimal } from '../utils/formatters.js'
 
 const trendPeriods = [
+  { value: 1, label: '1 mese' },
+  { value: 2, label: '2 mesi' },
   { value: 6, label: '6 mesi' },
   { value: 12, label: '1 anno' },
   { value: 24, label: '2 anni' },
   { value: 'all', label: 'Tutto' },
 ]
+const trendGranularities = [
+  { value: 'week', label: 'Settimana' },
+  { value: 'month', label: 'Mese' },
+  { value: 'year', label: 'Anno' },
+]
+const shortMonth = new Intl.DateTimeFormat('it-IT', { month: 'short' })
+const longMonth = new Intl.DateTimeFormat('it-IT', {
+  month: 'long',
+  year: 'numeric',
+})
 
 const recordLabels = {
   '1k': '1 km',
@@ -96,6 +108,26 @@ function beginningOfWeek(date) {
   return result
 }
 
+function beginningOfMonth(date) {
+  const result = new Date(date)
+  result.setDate(1)
+  result.setHours(0, 0, 0, 0)
+  return result
+}
+
+function beginningOfYear(date) {
+  const result = new Date(date)
+  result.setMonth(0, 1)
+  result.setHours(0, 0, 0, 0)
+  return result
+}
+
+function beginningOfTrendPeriod(date, granularity) {
+  if (granularity === 'month') return beginningOfMonth(date)
+  if (granularity === 'year') return beginningOfYear(date)
+  return beginningOfWeek(date)
+}
+
 function localDateKey(date) {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -115,18 +147,22 @@ function rangeStart(activities, period) {
     const dates = activities
       .map((activity) => new Date(activity.startTimeLocal))
       .filter((date) => !Number.isNaN(date.getTime()))
-    return dates.length ? beginningOfWeek(new Date(Math.min(...dates))) : beginningOfWeek(new Date())
+    const earliest = dates.length ? new Date(Math.min(...dates)) : new Date()
+    earliest.setHours(0, 0, 0, 0)
+    return earliest
   }
   const start = new Date()
   start.setMonth(start.getMonth() - period)
-  return beginningOfWeek(start)
+  start.setHours(0, 0, 0, 0)
+  return start
 }
 
-function aggregateWeeklyTrends(activities, start, end) {
-  const weeks = []
+function aggregateTrends(activities, start, end, granularity) {
+  const periods = []
   const byDate = new Map()
-  for (const cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 7)) {
-    const week = {
+  const bucketStart = beginningOfTrendPeriod(start, granularity)
+  for (const cursor = new Date(bucketStart); cursor <= end;) {
+    const trendPeriod = {
       date: localDateKey(cursor),
       km: 0,
       duration: 0,
@@ -135,41 +171,107 @@ function aggregateWeeklyTrends(activities, start, end) {
       heartRateCount: 0,
       longest: null,
     }
-    weeks.push(week)
-    byDate.set(week.date, week)
+    periods.push(trendPeriod)
+    byDate.set(trendPeriod.date, trendPeriod)
+
+    if (granularity === 'month') cursor.setMonth(cursor.getMonth() + 1)
+    else if (granularity === 'year') cursor.setFullYear(cursor.getFullYear() + 1)
+    else cursor.setDate(cursor.getDate() + 7)
   }
 
   activities.forEach((activity) => {
     const activityDate = new Date(activity.startTimeLocal)
-    if (activityDate < start || activityDate > end) return
-    const week = byDate.get(localDateKey(beginningOfWeek(activityDate)))
-    if (!week) return
+    if (Number.isNaN(activityDate.getTime()) || activityDate < start || activityDate > end) return
+    const trendPeriod = byDate.get(
+      localDateKey(beginningOfTrendPeriod(activityDate, granularity)),
+    )
+    if (!trendPeriod) return
     const distance = activityDistanceKm(activity)
     const heartRate = Number(activity.averageHR)
-    week.km += distance
-    week.duration += Number(activity.duration) || 0
-    week.runs += 1
-    week.longest = week.longest == null ? distance : Math.max(week.longest, distance)
+    trendPeriod.km += distance
+    trendPeriod.duration += Number(activity.duration) || 0
+    trendPeriod.runs += 1
+    trendPeriod.longest = trendPeriod.longest == null
+      ? distance
+      : Math.max(trendPeriod.longest, distance)
     if (Number.isFinite(heartRate)) {
-      week.heartRateTotal += heartRate
-      week.heartRateCount += 1
+      trendPeriod.heartRateTotal += heartRate
+      trendPeriod.heartRateCount += 1
     }
   })
 
-  return weeks.map((week) => ({
-    ...week,
-    km: Number(week.km.toFixed(2)),
-    hours: week.duration / 3600,
-    averageRunKm: week.runs ? week.km / week.runs : null,
-    pace: week.km > 0 ? (week.duration / 60) / week.km : null,
-    heartRate: week.heartRateCount ? week.heartRateTotal / week.heartRateCount : null,
+  return periods.map((trendPeriod) => ({
+    ...trendPeriod,
+    km: Number(trendPeriod.km.toFixed(2)),
+    hours: trendPeriod.duration / 3600,
+    averageRunKm: trendPeriod.runs ? trendPeriod.km / trendPeriod.runs : 0,
+    pace: trendPeriod.km > 0 ? (trendPeriod.duration / 60) / trendPeriod.km : null,
+    heartRate: trendPeriod.heartRateCount
+      ? trendPeriod.heartRateTotal / trendPeriod.heartRateCount
+      : null,
+    longest: trendPeriod.longest ?? 0,
   }))
 }
 
-function analyzeLinearTrend(data, key) {
+function metricCopy(metric, granularity) {
+  const words = {
+    week: {
+      noun: 'settimana',
+      adjective: 'settimanale',
+      pluralAdjective: 'settimanali',
+    },
+    month: {
+      noun: 'mese',
+      adjective: 'mensile',
+      pluralAdjective: 'mensili',
+    },
+    year: {
+      noun: 'anno',
+      adjective: 'annuale',
+      pluralAdjective: 'annuali',
+    },
+  }[granularity]
+  const replacePeriodWords = (value) => value
+    .replaceAll('settimanali', words.pluralAdjective)
+    .replaceAll('settimanale', words.adjective)
+    .replaceAll('settimana', words.noun)
+
+  return {
+    ...metric,
+    title: replacePeriodWords(metric.title),
+    description: replacePeriodWords(metric.description),
+  }
+}
+
+function trendTickLabel(value, granularity, showMonthYear) {
+  const date = new Date(`${value}T00:00:00`)
+  if (granularity === 'year') return String(date.getFullYear())
+  if (granularity === 'month') {
+    const month = shortMonth.format(date).replace('.', '')
+    return showMonthYear ? `${month} ${String(date.getFullYear()).slice(-2)}` : month
+  }
+  return formatDate(date, 'short')
+}
+
+function trendPeriodLabel(value, granularity) {
+  const date = new Date(`${value}T00:00:00`)
+  if (granularity === 'year') return `Anno ${date.getFullYear()}`
+  if (granularity === 'month') return longMonth.format(date)
+  return `Settimana del ${formatDate(date)}`
+}
+
+function analyzeLinearTrend(data, key, ignoreZero = false) {
   const points = data
-    .map((point, index) => ({ index, value: Number(point[key]) }))
-    .filter((point) => Number.isFinite(point.value))
+    .map((point, index) => ({
+      index,
+      rawValue: point[key],
+      value: Number(point[key]),
+    }))
+    .filter((point) => (
+      point.rawValue != null
+      && Number.isFinite(point.value)
+      && (!ignoreZero || point.value > 0)
+    ))
   if (points.length === 0) return { data, percent: null }
 
   const xAverage = points.reduce((sum, point) => sum + point.index, 0) / points.length
@@ -185,8 +287,10 @@ function analyzeLinearTrend(data, key) {
   const slope = denominator ? numerator / denominator : 0
   const intercept = yAverage - (slope * xAverage)
 
-  const firstValue = intercept
-  const lastValue = intercept + (slope * Math.max(0, data.length - 1))
+  const firstIndex = points[0].index
+  const lastIndex = points.at(-1).index
+  const firstValue = intercept + (slope * firstIndex)
+  const lastValue = intercept + (slope * lastIndex)
   const percent = yAverage
     ? ((lastValue - firstValue) / Math.abs(yAverage)) * 100
     : 0
@@ -195,8 +299,31 @@ function analyzeLinearTrend(data, key) {
     percent,
     data: data.map((point, index) => ({
       ...point,
-      trendValue: Math.max(0, intercept + (slope * index)),
+      trendValue: index >= firstIndex && index <= lastIndex
+        ? Math.max(0, intercept + (slope * index))
+        : null,
     })),
+  }
+}
+
+function runAxisScale(data) {
+  const maximum = Math.max(0, ...data.map((point) => Number(point.runs) || 0))
+
+  if (maximum <= 5) {
+    return {
+      domain: [0, maximum === 0 ? 1 : maximum + 0.2],
+      ticks: Array.from({ length: maximum + 1 }, (_value, index) => index),
+    }
+  }
+
+  const step = Math.ceil(maximum / 4)
+  const axisMaximum = Math.ceil(maximum / step) * step
+  const ticks = []
+  for (let value = 0; value <= axisMaximum; value += step) ticks.push(value)
+
+  return {
+    domain: [0, axisMaximum + 0.2],
+    ticks,
   }
 }
 
@@ -238,11 +365,21 @@ function TrendBadge({ percent, lowerIsBetter = false, directionOnly = false }) {
   )
 }
 
-function TrendChart({ metric, data }) {
-  const hasData = data.some((point) => Number.isFinite(point[metric.key]))
+function TrendChart({ metric: baseMetric, data, granularity }) {
+  const metric = metricCopy(baseMetric, granularity)
+  const hasData = data.some((point) => (
+    point[metric.key] != null && Number.isFinite(Number(point[metric.key]))
+  ))
+  const isRunCount = metric.key === 'runs'
+  const showMonthYear = granularity === 'month' && data.length > 12
+  const ignoreZeroTrend = ['pace', 'heartRate'].includes(metric.key)
   const analysis = useMemo(
-    () => analyzeLinearTrend(data, metric.key),
-    [data, metric.key],
+    () => analyzeLinearTrend(data, metric.key, ignoreZeroTrend),
+    [data, metric.key, ignoreZeroTrend],
+  )
+  const runScale = useMemo(
+    () => (isRunCount ? runAxisScale(data) : null),
+    [data, isRunCount],
   )
   return (
     <article className="panel trend-card">
@@ -267,7 +404,7 @@ function TrendChart({ metric, data }) {
               <CartesianGrid vertical={false} stroke="#e1e4df" />
               <XAxis
                 dataKey="date"
-                tickFormatter={(value) => formatDate(value, 'short')}
+                tickFormatter={(value) => trendTickLabel(value, granularity, showMonthYear)}
                 tickLine={false}
                 axisLine={false}
                 minTickGap={38}
@@ -278,23 +415,30 @@ function TrendChart({ metric, data }) {
                 tickLine={false}
                 axisLine={false}
                 width={58}
-                domain={metric.reversed || metric.key === 'heartRate' ? ['auto', 'auto'] : [0, 'auto']}
+                ticks={runScale?.ticks}
+                allowDecimals={!isRunCount}
+                domain={runScale?.domain
+                  ?? (metric.reversed || metric.key === 'heartRate'
+                    ? ['auto', 'auto']
+                    : [0, 'auto'])}
                 reversed={metric.reversed}
               />
               <Tooltip
+                itemSorter={(item) => (item.dataKey === 'trendValue' ? 1 : 0)}
                 formatter={(value, name) => [
                   metric.format(value),
-                  name === 'trendValue' ? 'Andamento' : metric.title,
+                  name,
                 ]}
-                labelFormatter={(value) => `Settimana del ${formatDate(value)}`}
+                labelFormatter={(value) => trendPeriodLabel(value, granularity)}
               />
               <Line
                 type="linear"
                 dataKey={metric.key}
+                name={metric.title}
                 stroke={metric.color}
                 strokeWidth={3}
                 dot={false}
-                activeDot={{ r: 5 }}
+                activeDot={false}
                 connectNulls={false}
               />
               <Line
@@ -410,8 +554,8 @@ function RecordTrend({ history, start, period }) {
                 dataKey="duration"
                 stroke="#ef5b24"
                 strokeWidth={3}
-                dot={{ r: 4, fill: '#ffffff', strokeWidth: 3 }}
-                activeDot={{ r: 6 }}
+                dot={false}
+                activeDot={false}
               />
               {data.length > 1 ? (
                 <Line
@@ -448,14 +592,25 @@ function RecordTrend({ history, start, period }) {
 
 function Trends({ activities, recordHistory }) {
   const [period, setPeriod] = useState(12)
+  const [granularity, setGranularity] = useState('week')
   const analysis = useMemo(() => {
     const end = new Date()
     const start = rangeStart(activities, period)
     return {
       start,
-      data: aggregateWeeklyTrends(activities, start, end),
+      data: aggregateTrends(activities, start, end, granularity),
     }
-  }, [activities, period])
+  }, [activities, granularity, period])
+  const recordStart = useMemo(
+    () => rangeStart(activities, period),
+    [activities, period],
+  )
+
+  const granularityName = {
+    week: 'settimana',
+    month: 'mese',
+    year: 'anno',
+  }[granularity]
 
   return (
     <div className="page-stack">
@@ -463,32 +618,56 @@ function Trends({ activities, recordHistory }) {
         <div>
           <p className="eyebrow">Trend</p>
           <h1>Come sta cambiando la tua corsa.</h1>
-          <p>Volume, ritmo, intensità e record personali letti settimana dopo settimana.</p>
+          <p>Volume, ritmo e intensità aggregati per {granularityName}, insieme ai record personali.</p>
         </div>
-        <div className="period-control trend-period-control" role="group" aria-label="Periodo dei trend">
-          {trendPeriods.map((option) => (
-            <button
-              type="button"
-              key={option.value}
-              className={period === option.value ? 'active' : ''}
-              aria-pressed={period === option.value}
-              onClick={() => setPeriod(option.value)}
-            >
-              {option.label}
-            </button>
-          ))}
+        <div className="trend-controls">
+          <div className="period-control trend-period-control" role="group" aria-label="Periodo dei trend">
+            {trendPeriods.map((option) => (
+              <button
+                type="button"
+                key={option.value}
+                className={period === option.value ? 'active' : ''}
+                aria-pressed={period === option.value}
+                onClick={() => setPeriod(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <div
+            className="period-control trend-period-control"
+            role="group"
+            aria-label="Raggruppamento dei trend"
+          >
+            {trendGranularities.map((option) => (
+              <button
+                type="button"
+                key={option.value}
+                className={granularity === option.value ? 'active' : ''}
+                aria-pressed={granularity === option.value}
+                onClick={() => setGranularity(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
         </div>
       </section>
 
       <section className="trends-grid" aria-label="Grafici delle metriche">
         {metricDefinitions.map((metric) => (
-          <TrendChart key={metric.key} metric={metric} data={analysis.data} />
+          <TrendChart
+            key={metric.key}
+            metric={metric}
+            data={analysis.data}
+            granularity={granularity}
+          />
         ))}
       </section>
 
       <RecordTrend
         history={recordHistory}
-        start={analysis.start}
+        start={recordStart}
         period={period}
       />
     </div>

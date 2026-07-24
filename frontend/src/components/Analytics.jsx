@@ -15,6 +15,32 @@ import { formatDate, formatDistance, formatDuration, formatPaceDecimal } from '.
 
 const periods = [7, 14, 30, 60, 90, 180]
 const shortMonth = new Intl.DateTimeFormat('it-IT', { month: 'short' })
+const volumeGranularities = [
+  { value: 'day', label: 'Giorni' },
+  { value: 'month', label: 'Mesi' },
+  { value: 'year', label: 'Anni' },
+]
+const volumeRanges = {
+  day: [
+    { value: 7, label: '7g' },
+    { value: 14, label: '14g' },
+    { value: 30, label: '30g' },
+  ],
+  month: [
+    { value: 6, label: '6 mesi' },
+    { value: 12, label: '1 anno' },
+    { value: 24, label: '2 anni' },
+    { value: 'all', label: 'Tutto' },
+  ],
+  year: [
+    { value: 'all', label: 'Tutto' },
+  ],
+}
+const defaultVolumeRanges = {
+  day: 30,
+  month: 12,
+  year: 'all',
+}
 
 const metricDefinitions = {
   longest: {
@@ -66,6 +92,18 @@ function endOfDay(date) {
 function shiftDays(date, days) {
   const result = new Date(date)
   result.setDate(result.getDate() + days)
+  return result
+}
+
+function beginningOfMonth(date) {
+  const result = startOfDay(date)
+  result.setDate(1)
+  return result
+}
+
+function beginningOfYear(date) {
+  const result = startOfDay(date)
+  result.setMonth(0, 1)
   return result
 }
 
@@ -151,6 +189,82 @@ function aggregateWeeks(activities, start, end) {
   }))
 }
 
+function earliestActivityDate(activities) {
+  const dates = activities
+    .map((activity) => new Date(activity.startTimeLocal))
+    .filter((date) => !Number.isNaN(date.getTime()))
+  return dates.length ? new Date(Math.min(...dates)) : new Date()
+}
+
+function volumeBucketLabel(date, granularity) {
+  if (granularity === 'day') return formatDate(date)
+  if (granularity === 'month') {
+    return new Intl.DateTimeFormat('it-IT', {
+      month: 'long',
+      year: 'numeric',
+    }).format(date)
+  }
+  return String(date.getFullYear())
+}
+
+function aggregateVolume(activities, granularity, range) {
+  const now = new Date()
+  const earliest = earliestActivityDate(activities)
+  let start
+
+  if (granularity === 'day') {
+    start = shiftDays(startOfDay(now), -(Number(range) - 1))
+  } else if (granularity === 'month') {
+    start = range === 'all' ? beginningOfMonth(earliest) : beginningOfMonth(now)
+    if (range !== 'all') start.setMonth(start.getMonth() - (Number(range) - 1))
+  } else {
+    start = beginningOfYear(earliest)
+  }
+
+  const buckets = []
+  const byDate = new Map()
+  const cursor = new Date(start)
+  while (cursor <= now) {
+    const date = localDateKey(cursor)
+    const bucket = {
+      date,
+      periodLabel: volumeBucketLabel(cursor, granularity),
+      km: 0,
+      runs: 0,
+      duration: 0,
+      elevation: 0,
+    }
+    buckets.push(bucket)
+    byDate.set(date, bucket)
+
+    if (granularity === 'day') cursor.setDate(cursor.getDate() + 1)
+    if (granularity === 'month') cursor.setMonth(cursor.getMonth() + 1)
+    if (granularity === 'year') cursor.setFullYear(cursor.getFullYear() + 1)
+  }
+
+  activities.forEach((activity) => {
+    const activityDate = new Date(activity.startTimeLocal)
+    if (Number.isNaN(activityDate.getTime()) || activityDate < start || activityDate > now) return
+
+    let bucketDate = startOfDay(activityDate)
+    if (granularity === 'month') bucketDate = beginningOfMonth(activityDate)
+    if (granularity === 'year') bucketDate = beginningOfYear(activityDate)
+    const bucket = byDate.get(localDateKey(bucketDate))
+    if (!bucket) return
+
+    bucket.km += activityDistanceKm(activity)
+    bucket.runs += 1
+    bucket.duration += Number(activity.duration) || 0
+    bucket.elevation += Number(activity.elevationGain) || 0
+  })
+
+  return buckets.map((bucket) => ({
+    ...bucket,
+    km: Number(bucket.km.toFixed(2)),
+    elevation: Math.round(bucket.elevation),
+  }))
+}
+
 function addTrend(weeks) {
   const count = weeks.length
   if (count === 0) return { data: [], average: 0 }
@@ -223,7 +337,7 @@ function formatMetric(metric, value) {
   return formatDistance(value)
 }
 
-function WeeklyDot({ cx, cy, payload, selectedDate, onSelect }) {
+function VolumeDot({ cx, cy, payload, selectedDate, onSelect }) {
   const selected = payload.date === selectedDate
   const select = (event) => {
     event.stopPropagation()
@@ -235,7 +349,7 @@ function WeeklyDot({ cx, cy, payload, selectedDate, onSelect }) {
       className="weekly-point"
       role="button"
       tabIndex={0}
-      aria-label={`Seleziona la settimana ${weekRangeLabel(payload.date)}, ${formatDistance(payload.km)}`}
+      aria-label={`Seleziona ${payload.periodLabel}, ${formatDistance(payload.km)}`}
       onClick={select}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') select(event)
@@ -433,7 +547,9 @@ function Analytics({ activities }) {
   const [period, setPeriod] = useState(30)
   const [periodOffset, setPeriodOffset] = useState(0)
   const [alignToMonday, setAlignToMonday] = useState(false)
-  const [selectedWeekKey, setSelectedWeekKey] = useState(null)
+  const [volumeGranularity, setVolumeGranularity] = useState('day')
+  const [volumeRange, setVolumeRange] = useState(defaultVolumeRanges.day)
+  const [selectedVolumeKey, setSelectedVolumeKey] = useState(null)
   const [showWeeklyAverage, setShowWeeklyAverage] = useState(false)
   const [showWeeklyTrend, setShowWeeklyTrend] = useState(false)
   const [openMetric, setOpenMetric] = useState(null)
@@ -476,12 +592,27 @@ function Analytics({ activities }) {
     [activities, dateRange],
   )
 
-  const weeklyAnalysis = useMemo(
-    () => addTrend(aggregateWeeks(activities, dateRange.start, dateRange.end)),
-    [activities, dateRange],
+  const volumeAnalysis = useMemo(
+    () => addTrend(aggregateVolume(activities, volumeGranularity, volumeRange)),
+    [activities, volumeGranularity, volumeRange],
   )
-  const selectedWeek = weeklyAnalysis.data.find((week) => week.date === selectedWeekKey)
-    ?? weeklyAnalysis.data.at(-1)
+  const selectedVolume = volumeAnalysis.data.find((point) => point.date === selectedVolumeKey)
+    ?? volumeAnalysis.data.at(-1)
+  const volumeShowsYears = volumeGranularity === 'month' && volumeAnalysis.data.length > 12
+
+  const volumeTickFormatter = (value) => {
+    const date = new Date(`${value}T00:00:00`)
+    if (volumeGranularity === 'day') return formatDate(date, 'short')
+    if (volumeGranularity === 'year') return String(date.getFullYear())
+    const month = shortMonth.format(date).replace('.', '')
+    return volumeShowsYears ? `${month} ${String(date.getFullYear()).slice(-2)}` : month
+  }
+
+  const volumeSelectionTitle = {
+    day: 'Giorno selezionato',
+    month: 'Mese selezionato',
+    year: 'Anno selezionato',
+  }[volumeGranularity]
 
   const periodMetrics = useMemo(() => {
     const totalDistance = filtered.reduce(
@@ -520,17 +651,20 @@ function Analytics({ activities }) {
   const selectPeriod = (value) => {
     setPeriod(value)
     setPeriodOffset(0)
-    setSelectedWeekKey(null)
   }
 
   const showPreviousPeriod = () => {
     setPeriodOffset((value) => value + 1)
-    setSelectedWeekKey(null)
   }
 
   const showNextPeriod = () => {
     setPeriodOffset((value) => Math.max(0, value - 1))
-    setSelectedWeekKey(null)
+  }
+
+  const selectVolumeGranularity = (value) => {
+    setVolumeGranularity(value)
+    setVolumeRange(defaultVolumeRanges[value])
+    setSelectedVolumeKey(null)
   }
 
   const metricCards = [
@@ -623,7 +757,6 @@ function Analytics({ activities }) {
               onChange={(event) => {
                 setAlignToMonday(event.target.checked)
                 setPeriodOffset(0)
-                setSelectedWeekKey(null)
               }}
             />
             Fai partire il periodo da lunedì
@@ -690,30 +823,59 @@ function Analytics({ activities }) {
         })}
       </section>
 
-      <article className="panel analytics-panel weekly-progress-panel">
-        <div className="panel-heading">
+      <article className="panel analytics-panel weekly-progress-panel volume-panel">
+        <div className="volume-panel-header">
           <div>
             <p className="eyebrow">Volume</p>
-            <h2>Distanza settimanale</h2>
-            <p>Tocca una settimana per vederne i totali.</p>
+            <h2>Volume di corsa</h2>
+            <p>Visualizza i chilometri percorsi per giorno, mese o anno.</p>
+          </div>
+          <div className="volume-controls">
+            <div className="period-control" role="group" aria-label="Raggruppamento del volume">
+              {volumeGranularities.map((option) => (
+                <button
+                  type="button"
+                  key={option.value}
+                  className={volumeGranularity === option.value ? 'active' : ''}
+                  aria-pressed={volumeGranularity === option.value}
+                  onClick={() => selectVolumeGranularity(option.value)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <div className="period-control" role="group" aria-label="Intervallo del volume">
+              {volumeRanges[volumeGranularity].map((option) => (
+                <button
+                  type="button"
+                  key={option.value}
+                  className={volumeRange === option.value ? 'active' : ''}
+                  aria-pressed={volumeRange === option.value}
+                  onClick={() => {
+                    setVolumeRange(option.value)
+                    setSelectedVolumeKey(null)
+                  }}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
-        {selectedWeek && (
+        {selectedVolume && (
           <div className="weekly-progress-summary" aria-live="polite">
             <div className="weekly-progress-title">
-              <span>
-                {selectedWeek.date === weeklyAnalysis.data.at(-1)?.date
-                  ? 'Questa settimana'
-                  : 'Settimana selezionata'}
-              </span>
-              <small>{weekRangeLabel(selectedWeek.date)}</small>
+              <span>{volumeSelectionTitle}</span>
+              <small>{selectedVolume.periodLabel}</small>
             </div>
-            <strong>{formatDistance(selectedWeek.km)}</strong>
+            <strong>{formatDistance(selectedVolume.km)}</strong>
             <div className="weekly-progress-details">
-              <span><b>{formatDuration(selectedWeek.duration)}</b> tempo</span>
-              <span><b>{selectedWeek.elevation.toLocaleString('it-IT')} m</b> dislivello</span>
-              <span><b>{selectedWeek.runs}</b> {selectedWeek.runs === 1 ? 'corsa' : 'corse'}</span>
+              <span><b>{formatDuration(selectedVolume.duration)}</b> tempo</span>
+              <span><b>{selectedVolume.elevation.toLocaleString('it-IT')} m</b> dislivello</span>
+              <span>
+                <b>{selectedVolume.runs}</b> {selectedVolume.runs === 1 ? 'corsa' : 'corse'}
+              </span>
             </div>
           </div>
         )}
@@ -726,7 +888,7 @@ function Analytics({ activities }) {
               onChange={(event) => setShowWeeklyAverage(event.target.checked)}
             />
             <span className="overlay-swatch average" aria-hidden="true" />
-            Media settimanale ({formatDistance(weeklyAnalysis.average)})
+            Media del periodo ({formatDistance(volumeAnalysis.average)})
           </label>
           <label>
             <input
@@ -740,23 +902,20 @@ function Analytics({ activities }) {
         </div>
 
         <div className="weekly-chart-scroll">
-          <div
-            className="analytics-chart weekly-chart"
-            style={{ minWidth: `${Math.max(340, weeklyAnalysis.data.length * 56)}px` }}
-          >
+          <div className="analytics-chart weekly-chart">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart
-                data={weeklyAnalysis.data}
+                data={volumeAnalysis.data}
                 margin={{ top: 14, right: 18, left: 4, bottom: 0 }}
                 onClick={(state) => {
-                  const week = state?.activePayload?.[0]?.payload
-                  if (week) setSelectedWeekKey(week.date)
+                  const point = state?.activePayload?.[0]?.payload
+                  if (point) setSelectedVolumeKey(point.date)
                 }}
               >
                 <CartesianGrid vertical={false} stroke="#d8d9d6" />
                 <XAxis
                   dataKey="date"
-                  tickFormatter={(value) => formatDate(value, 'short')}
+                  tickFormatter={volumeTickFormatter}
                   tickLine={false}
                   axisLine={false}
                   minTickGap={24}
@@ -771,24 +930,25 @@ function Analytics({ activities }) {
                   domain={[0, 'auto']}
                 />
                 <Tooltip
+                  itemSorter={(item) => (item.dataKey === 'trendKm' ? 1 : 0)}
                   formatter={(value, name) => [
                     formatDistance(value),
-                    name === 'trendKm' ? 'Tendenza' : 'Distanza',
+                    name,
                   ]}
-                  labelFormatter={(value) => weekRangeLabel(value)}
+                  labelFormatter={(_value, payload) => payload?.[0]?.payload?.periodLabel ?? ''}
                   cursor={{ stroke: '#ef5b24', strokeWidth: 2 }}
                 />
-                {selectedWeek && (
-                  <ReferenceLine x={selectedWeek.date} stroke="#ef5b24" strokeWidth={2} />
+                {selectedVolume && (
+                  <ReferenceLine x={selectedVolume.date} stroke="#ef5b24" strokeWidth={2} />
                 )}
                 {showWeeklyAverage && (
                   <ReferenceLine
-                    y={weeklyAnalysis.average}
+                    y={volumeAnalysis.average}
                     stroke="#315e3b"
                     strokeWidth={2}
                     strokeDasharray="6 5"
                     label={{
-                      value: formatDistance(weeklyAnalysis.average),
+                      value: formatDistance(volumeAnalysis.average),
                       position: 'insideTopLeft',
                       fill: '#315e3b',
                       fontSize: 12,
@@ -799,27 +959,29 @@ function Analytics({ activities }) {
                 <Area
                   type="linear"
                   dataKey="km"
+                  name="Distanza"
                   stroke="#ef5b24"
                   strokeWidth={4}
                   fill="#fbd8c7"
                   fillOpacity={0.9}
                   cursor="pointer"
                   dot={(props) => (
-                    <WeeklyDot
+                    <VolumeDot
                       {...props}
-                      selectedDate={selectedWeek?.date}
-                      onSelect={setSelectedWeekKey}
+                      selectedDate={selectedVolume?.date}
+                      onSelect={setSelectedVolumeKey}
                     />
                   )}
                   activeDot={false}
                   onClick={(entry) => {
-                    if (entry?.date) setSelectedWeekKey(entry.date)
+                    if (entry?.date) setSelectedVolumeKey(entry.date)
                   }}
                 />
                 {showWeeklyTrend && (
                   <Line
                     type="linear"
                     dataKey="trendKm"
+                    name="Tendenza"
                     stroke="#345f9d"
                     strokeWidth={3}
                     strokeDasharray="9 5"
