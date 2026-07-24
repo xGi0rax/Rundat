@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from data_processor import calc_pace_decimal, calculate_pace
+from domain.activity_metrics import calc_pace_decimal, calculate_pace
 from services.activity_repository import list_activities
 from services.personal_record_repository import list_personal_record_history, list_personal_records
 

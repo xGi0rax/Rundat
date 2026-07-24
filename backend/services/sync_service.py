@@ -1,159 +1,47 @@
-import math
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-import pandas as pd
-
-from data_processor import CSV_FILE
-from services.activity_repository import encode_raw_data, latest_activity_start, upsert_activities
+from config import CSV_FILE
+from domain.sync_normalizers import (
+    clean_value as _clean_value,
+    normalize_activity,
+    normalize_hr_zones,
+    normalize_personal_records,
+)
+from services.activity_repository import latest_activity_start, upsert_activities
 from services.database import connect
+from services.hr_zone_repository import (
+    activity_ids_missing_hr_zones,
+    mark_activity_hr_zones_failed,
+    replace_activity_hr_zones,
+)
 from services.personal_record_repository import replace_personal_records
 
-GARMIN_RUNNING_RECORD_TYPES = {
-    1: ("1k", 1.0),
-    3: ("5k", 5.0),
-    4: ("10k", 10.0),
-    5: ("Half Marathon", 21.0975),
-    6: ("Full Marathon", 42.195),
-}
-
-
-def _clean_value(value: Any):
-    if value is None:
-        return None
-    try:
-        if pd.isna(value):
-            return None
-    except (TypeError, ValueError):
-        pass
-    if hasattr(value, "item"):
-        value = value.item()
-    if isinstance(value, float) and not math.isfinite(value):
-        return None
-    return value
-
-
-def normalize_activity(raw: dict[str, Any]) -> dict[str, Any] | None:
-    activity_id = _clean_value(raw.get("activityId"))
-    start_time = _clean_value(raw.get("startTimeLocal"))
-    distance = _clean_value(raw.get("distance"))
-    duration = _clean_value(raw.get("duration"))
-    if activity_id is None or start_time is None or distance is None or duration is None:
-        return None
-
-    if isinstance(start_time, pd.Timestamp):
-        start_time = start_time.to_pydatetime()
-    if not isinstance(start_time, datetime):
-        start_time = datetime.fromisoformat(str(start_time))
-
-    cleaned_raw = {key: _clean_value(value) for key, value in raw.items()}
-    cleaned_raw["startTimeLocal"] = start_time.isoformat(timespec="seconds")
-    return {
-        "activity_id": int(activity_id),
-        "activity_name": _clean_value(raw.get("activityName")),
-        "start_time_local": start_time.isoformat(timespec="seconds"),
-        "distance": float(distance),
-        "duration": float(duration),
-        "average_speed": _float_or_none(raw.get("averageSpeed")),
-        "average_hr": _float_or_none(raw.get("averageHR")),
-        "max_hr": _float_or_none(raw.get("maxHR")),
-        "calories": _float_or_none(raw.get("calories")),
-        "elevation_gain": _float_or_none(raw.get("elevationGain")),
-        "raw_data": encode_raw_data(cleaned_raw),
-    }
-
-
-def _float_or_none(value: Any) -> float | None:
-    value = _clean_value(value)
-    return None if value is None else float(value)
-
-
-def normalize_personal_records(raw_response: Any) -> list[dict[str, Any]]:
-    normalized = []
-    for raw in _find_personal_records(raw_response):
-        type_id = _clean_value(raw.get("typeId"))
-        if type_id is None:
-            continue
-        record_definition = GARMIN_RUNNING_RECORD_TYPES.get(int(type_id))
-        if record_definition is None:
-            continue
-
-        duration = _float_or_none(raw.get("value"))
-        record_date = _personal_record_date(raw)
-        if duration is None or duration < 0 or record_date is None:
-            continue
-
-        record_key, distance_km = record_definition
-        activity_id = _clean_value(raw.get("activityId"))
-        cleaned_raw = {key: _clean_value(value) for key, value in raw.items()}
-        normalized.append(
-            {
-                "record_key": record_key,
-                "type_id": int(type_id),
-                "activity_id": int(activity_id) if activity_id is not None else None,
-                "distance_km": distance_km,
-                "duration": duration,
-                "record_date": record_date,
-                "raw_data": encode_raw_data(cleaned_raw),
-            }
-        )
-    return normalized
-
-
-def _find_personal_records(value: Any) -> list[dict[str, Any]]:
-    if isinstance(value, list):
-        return [record for item in value for record in _find_personal_records(item)]
-    if not isinstance(value, dict):
-        return []
-    if "typeId" in value and "value" in value:
-        return [value]
-    return [record for item in value.values() for record in _find_personal_records(item)]
-
-
-def _personal_record_date(raw: dict[str, Any]) -> str | None:
-    formatted_fields = (
-        "activityStartDateTimeLocalFormatted",
-        "actStartDateTimeInGMTFormatted",
-    )
-    for field in formatted_fields:
-        value = _clean_value(raw.get(field))
-        if value and len(str(value)) >= 10:
-            candidate = str(value)[:10]
-            try:
-                return datetime.fromisoformat(candidate).date().isoformat()
-            except ValueError:
-                pass
-
-    timestamp_fields = (
-        "activityStartDateTimeLocal",
-        "activityStartDateTimeInGMT",
-        "prStartTimeLocal",
-        "prStartTimeGmt",
-    )
-    for field in timestamp_fields:
-        value = _clean_value(raw.get(field))
-        if value is None:
-            continue
-        try:
-            timestamp = float(value)
-            if timestamp > 100_000_000_000:
-                timestamp /= 1000
-            return datetime.fromtimestamp(timestamp).date().isoformat()
-        except (OSError, OverflowError, TypeError, ValueError):
-            continue
-    return None
+LOGGER = logging.getLogger(__name__)
+MAX_HR_ZONE_FETCHES_PER_SYNC = 20
 
 
 def sync_csv(csv_path: Path | None = None, db_path: Path | None = None) -> dict[str, Any]:
+    import pandas as pd
+
     path = Path(csv_path or CSV_FILE)
     if not path.exists():
         raise FileNotFoundError(f"CSV file '{path}' not found.")
     run_id = _start_run("csv", db_path)
     try:
         frame = pd.read_csv(path)
-        normalized = [item for item in (normalize_activity(row) for row in frame.to_dict("records")) if item]
+        raw_rows = frame.to_dict("records")
+        normalized = [item for item in (normalize_activity(row) for row in raw_rows) if item]
         counts = upsert_activities(normalized, db_path)
+        counts["zones"] = 0
+        for raw in raw_rows:
+            activity_id = _clean_value(raw.get("activityId"))
+            zones = normalize_hr_zones(raw)
+            if activity_id is not None and zones:
+                replace_activity_hr_zones(int(activity_id), zones, raw, db_path)
+                counts["zones"] += 1
         return _finish_run(run_id, "success", counts, db_path=db_path)
     except Exception as error:
         _finish_run(run_id, "failed", error_message=str(error), db_path=db_path)
@@ -189,6 +77,29 @@ def sync_garmin(db_path: Path | None = None) -> dict[str, Any]:
 
         normalized = [item for item in (normalize_activity(raw) for raw in raw_activities) if item]
         counts = upsert_activities(normalized, db_path)
+        counts["zones"] = 0
+        for activity_id in activity_ids_missing_hr_zones(
+            MAX_HR_ZONE_FETCHES_PER_SYNC,
+            db_path,
+        ):
+            try:
+                raw_zones = client.get_activity_hr_in_timezones(str(activity_id))
+                normalized_zones = normalize_hr_zones(raw_zones)
+                replace_activity_hr_zones(
+                    activity_id,
+                    normalized_zones,
+                    raw_zones,
+                    db_path,
+                )
+                if normalized_zones:
+                    counts["zones"] += 1
+            except Exception as error:
+                LOGGER.warning(
+                    "Heart-rate zones unavailable for activity %s: %s",
+                    activity_id,
+                    error,
+                )
+                mark_activity_hr_zones_failed(activity_id, str(error), db_path)
         raw_personal_records = client.get_personal_record()
         replace_personal_records(
             normalize_personal_records(raw_personal_records),
@@ -224,15 +135,25 @@ def _finish_run(
     error_message: str | None = None,
     db_path: Path | None = None,
 ) -> dict[str, Any]:
-    counts = counts or {"inserted": 0, "updated": 0, "skipped": 0}
+    counts = counts or {"inserted": 0, "updated": 0, "skipped": 0, "zones": 0}
     finished_at = datetime.now().isoformat(timespec="seconds")
     with connect(db_path) as connection:
         connection.execute(
             """
             UPDATE sync_runs SET status = ?, finished_at = ?, inserted_count = ?,
-                updated_count = ?, skipped_count = ?, error_message = ? WHERE id = ?
+                updated_count = ?, skipped_count = ?, hr_zone_count = ?,
+                error_message = ? WHERE id = ?
             """,
-            (status, finished_at, counts["inserted"], counts["updated"], counts["skipped"], error_message, run_id),
+            (
+                status,
+                finished_at,
+                counts["inserted"],
+                counts["updated"],
+                counts["skipped"],
+                counts.get("zones", 0),
+                error_message,
+                run_id,
+            ),
         )
         row = connection.execute("SELECT * FROM sync_runs WHERE id = ?", (run_id,)).fetchone()
     return dict(row)

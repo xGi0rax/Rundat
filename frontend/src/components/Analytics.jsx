@@ -6,11 +6,11 @@ import {
   Line,
   LineChart,
   ReferenceLine,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts'
+import ChartContainer from './ChartContainer.jsx'
 import { formatDate, formatDistance, formatDuration, formatPaceDecimal } from '../utils/formatters.js'
 
 const periods = [7, 14, 30, 60, 90, 180]
@@ -472,7 +472,7 @@ function MetricModal({ activities, metric, onClose }) {
           {!hasMetricData ? (
             <p className="chart-empty">Nessun dato disponibile per questo intervallo.</p>
           ) : (
-            <ResponsiveContainer width="100%" height="100%">
+            <ChartContainer>
               <LineChart data={data} margin={{ top: 22, right: 22, left: 4, bottom: 4 }}>
                 <CartesianGrid vertical={false} stroke="#e1e4df" />
                 <XAxis
@@ -535,7 +535,7 @@ function MetricModal({ activities, metric, onClose }) {
                   activeDot={{ r: 5 }}
                 />
               </LineChart>
-            </ResponsiveContainer>
+            </ChartContainer>
           )}
         </div>
       </section>
@@ -903,7 +903,7 @@ function Analytics({ activities }) {
 
         <div className="weekly-chart-scroll">
           <div className="analytics-chart weekly-chart">
-            <ResponsiveContainer width="100%" height="100%">
+            <ChartContainer>
               <AreaChart
                 data={volumeAnalysis.data}
                 margin={{ top: 14, right: 18, left: 4, bottom: 0 }}
@@ -991,7 +991,7 @@ function Analytics({ activities }) {
                   />
                 )}
               </AreaChart>
-            </ResponsiveContainer>
+            </ChartContainer>
           </div>
         </div>
       </article>

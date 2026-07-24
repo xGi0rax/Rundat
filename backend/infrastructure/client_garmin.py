@@ -1,44 +1,44 @@
+import logging
 import os
-from pathlib import Path
+
 from dotenv import load_dotenv
 from garminconnect import (
     Garmin,
     GarminConnectAuthenticationError,
-    GarminConnectConnectionError,
     GarminConnectTooManyRequestsError,
 )
 
-# Credentials and tokens are stored inside backend, regardless of the current
-# working directory used to start Uvicorn.
-BACKEND_DIR = Path(__file__).resolve().parents[1]
+from config import BACKEND_DIR
+
+LOGGER = logging.getLogger(__name__)
+
 load_dotenv(BACKEND_DIR / ".env")
 email = os.getenv("GARMIN_EMAIL")
 password = os.getenv("GARMIN_PASSWORD")
 token_dir = str(BACKEND_DIR / ".garminconnect")
 
-# Function to get Garmin client with token management
+
 def get_client():
     os.makedirs(token_dir, exist_ok=True)
 
-    # First try to restore session from saved tokens
     try:
         client = Garmin()
         client.login(token_dir)
-        print("Garmin session restored.")
+        LOGGER.info("Garmin session restored")
         return client
-    except Exception:
-        print("No valid tokens found, executing full login...")
+    except Exception as error:
+        LOGGER.info("Stored Garmin session unavailable: %s", error)
 
-    # If token restore fails, execution of a full login with credentials
+    if not email or not password:
+        raise RuntimeError(
+            "Credenziali Garmin mancanti: configura GARMIN_EMAIL e GARMIN_PASSWORD."
+        )
+
     try:
         client = Garmin(email=email, password=password)
-        # Do not pass token_dir here: Garmin.login() prioritizes an existing
-        # token file even when credentials are present. A stale token would
-        # therefore be loaded a second time instead of performing a fresh
-        # credential login.
         client.login()
         client.client.dump(token_dir)
-        print("Garmin login successful; tokens saved.")
+        LOGGER.info("Garmin login successful; session saved")
         return client
     except GarminConnectTooManyRequestsError as e:
         raise RuntimeError(

@@ -3,8 +3,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable
 
-from data_processor import calc_pace_decimal, calculate_pace
+from domain.activity_metrics import calc_pace_decimal, calculate_pace
 from services.database import connect
+from services.hr_zone_repository import list_hr_zones_by_activity
 
 ACTIVITY_COLUMNS = (
     "activity_id",
@@ -83,7 +84,11 @@ def list_activities(db_path: Path | None = None) -> list[dict[str, Any]]:
             ORDER BY start_time_local DESC
             """
         ).fetchall()
-    return [_row_to_summary(row) for row in rows]
+    zones_by_activity = list_hr_zones_by_activity(db_path)
+    return [
+        _row_to_summary(row, zones_by_activity.get(int(row["activity_id"]), []))
+        for row in rows
+    ]
 
 
 def latest_activity_start(db_path: Path | None = None) -> datetime | None:
@@ -92,7 +97,7 @@ def latest_activity_start(db_path: Path | None = None) -> datetime | None:
     return datetime.fromisoformat(value) if value else None
 
 
-def _row_to_summary(row) -> dict[str, Any]:
+def _row_to_summary(row, heart_rate_zones: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     speed = row["average_speed"]
     return {
         "activityId": row["activity_id"],
@@ -108,6 +113,7 @@ def _row_to_summary(row) -> dict[str, Any]:
         "maxHR": row["max_hr"],
         "calories": row["calories"],
         "elevationGain": row["elevation_gain"],
+        "heartRateZones": heart_rate_zones or [],
     }
 
 

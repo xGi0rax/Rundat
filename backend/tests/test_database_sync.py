@@ -15,7 +15,13 @@ from services.activity_repository import count_activities
 from services.activity_service import get_activities, get_dashboard, get_personal_best_history
 from services.database import initialize_database
 from services.personal_record_repository import replace_personal_records
-from services.sync_service import list_sync_runs, normalize_personal_records, sync_csv
+from services.sync_service import (
+    list_sync_runs,
+    normalize_activity,
+    normalize_hr_zones,
+    normalize_personal_records,
+    sync_csv,
+)
 
 
 class DatabaseSyncTests(unittest.TestCase):
@@ -72,6 +78,50 @@ class DatabaseSyncTests(unittest.TestCase):
         self.assertEqual(result["skipped_count"], 1)
         self.assertEqual(count_activities(self.db_path), 2)
         self.assertEqual(activities[0]["activityName"], "Updated name")
+
+    def test_csv_and_garmin_zone_shapes_are_normalized_and_persisted(self):
+        self.rows[0].update(
+            {
+                "hrTimeInZone_1": 120,
+                "hrTimeInZone_2": 600,
+                "hrTimeInZone_3": 480,
+                "hrTimeInZone_4": 240,
+                "hrTimeInZone_5": 60,
+            }
+        )
+        pd.DataFrame(self.rows).to_csv(self.csv_path, index=False)
+        sync_csv(self.csv_path, self.db_path)
+
+        latest = get_activities(self.db_path)[0]
+        self.assertEqual(len(latest["heartRateZones"]), 5)
+        self.assertEqual(latest["heartRateZones"][1]["seconds"], 600)
+        self.assertEqual(latest["heartRateZones"][1]["percentage"], 40)
+
+        garmin_zones = normalize_hr_zones(
+            [
+                {"zoneNumber": 1, "secsInZone": 90, "zoneLowBoundary": 95},
+                {"zoneNumber": 2, "secsInZone": 300, "zoneLowBoundary": 120},
+            ]
+        )
+        self.assertEqual(garmin_zones[0]["high_bpm"], 120)
+        self.assertEqual(garmin_zones[1]["seconds"], 300)
+
+    def test_invalid_numbers_are_rejected_without_crashing_normalization(self):
+        malformed = {**self.rows[0], "distance": "not-a-number"}
+        self.assertIsNone(normalize_activity(malformed))
+
+        zones = normalize_hr_zones(
+            [
+                {"zoneNumber": 1, "secsInZone": "invalid"},
+                {"zoneNumber": 2, "secsInZone": 120, "lowBpm": "invalid"},
+            ]
+        )
+        self.assertEqual(zones, [{
+            "zone_number": 2,
+            "seconds": 120,
+            "low_bpm": None,
+            "high_bpm": None,
+        }])
 
     def test_dashboard_contract_is_preserved_after_migration(self):
         sync_csv(self.csv_path, self.db_path)

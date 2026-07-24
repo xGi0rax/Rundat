@@ -4,11 +4,11 @@ import {
   Line,
   LineChart,
   ReferenceLine,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts'
+import ChartContainer from './ChartContainer.jsx'
 import { formatDate, formatDistance, formatDuration, formatPaceDecimal } from '../utils/formatters.js'
 
 const trendPeriods = [
@@ -399,7 +399,7 @@ function TrendChart({ metric: baseMetric, data, granularity }) {
       </div>
       {hasData ? (
         <div className="trend-chart">
-          <ResponsiveContainer width="100%" height="100%">
+          <ChartContainer>
             <LineChart data={analysis.data} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
               <CartesianGrid vertical={false} stroke="#e1e4df" />
               <XAxis
@@ -453,7 +453,7 @@ function TrendChart({ metric: baseMetric, data, granularity }) {
                 isAnimationActive={false}
               />
             </LineChart>
-          </ResponsiveContainer>
+          </ChartContainer>
         </div>
       ) : (
         <p className="trend-empty">Nessun dato disponibile nel periodo.</p>
@@ -523,7 +523,7 @@ function RecordTrend({ history, start, period }) {
 
       {data.length > 0 ? (
         <div className="record-trend-chart">
-          <ResponsiveContainer width="100%" height="100%">
+          <ChartContainer>
             <LineChart data={analysis.data} margin={{ top: 16, right: 22, left: 4, bottom: 0 }}>
               <CartesianGrid vertical={false} stroke="#e1e4df" />
               <XAxis
@@ -578,7 +578,7 @@ function RecordTrend({ history, start, period }) {
                 />
               )}
             </LineChart>
-          </ResponsiveContainer>
+          </ChartContainer>
         </div>
       ) : (
         <div className="record-trend-empty">
