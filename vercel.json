@@ -3,7 +3,7 @@
   "framework": null,
   "fluid": true,
   "regions": ["fra1"],
-  "installCommand": "npm --prefix frontend ci",
+  "installCommand": "npm --prefix frontend install --include=dev --no-audit --no-fund",
   "buildCommand": "npm --prefix frontend run build",
   "outputDirectory": "frontend/dist",
   "functions": {
