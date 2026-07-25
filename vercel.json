@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": null,
+  "framework": "fastapi",
   "fluid": true,
   "regions": ["fra1"],
   "installCommand": "npm --prefix frontend install --include=dev --no-audit --no-fund",
