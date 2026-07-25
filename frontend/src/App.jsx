@@ -149,55 +149,6 @@ function App() {
     loadData()
   }
 
-  useEffect(() => {
-    if (status !== 'success') return undefined
-    const controller = new AbortController()
-
-    if (view === 'profile' && data.dashboard == null) {
-      fetchJson('/api/dashboard', { signal: controller.signal })
-        .then((dashboard) => setData((current) => ({ ...current, dashboard })))
-        .catch((reason) => {
-          if (reason.name !== 'AbortError') {
-            setError(reason.message)
-            setStatus('error')
-          }
-        })
-    }
-    if (view === 'trends' && data.recordHistory == null) {
-      fetchJson('/api/pbs/history', { signal: controller.signal })
-        .then((recordHistory) => setData((current) => ({ ...current, recordHistory })))
-        .catch((reason) => {
-          if (reason.name !== 'AbortError') {
-            setError(reason.message)
-            setStatus('error')
-          }
-        })
-    }
-    return () => controller.abort()
-  }, [data.dashboard, data.recordHistory, status, view])
-
-  const syncGarmin = async () => {
-    setSyncState({ status: 'loading', message: 'Sincronizzazione con Garmin in corso…' })
-    try {
-      const result = await fetchJson('/api/sync/garmin', { method: 'POST' })
-      const activities = await fetchJson('/api/activities')
-      const changed = result.insertedCount + result.updatedCount
-      const zonesMessage = result.hrZoneCount > 0
-        ? ` Zone cardio aggiunte a ${result.hrZoneCount} attività.`
-        : ''
-      const message = changed > 0
-        ? `${result.insertedCount} nuove, ${result.updatedCount} aggiornate.${zonesMessage}`
-        : zonesMessage || 'Tutto aggiornato: nessuna nuova attività o zona cardio.'
-      setData({ dashboard: null, activities, recordHistory: null })
-      setSyncState({ status: 'success', message })
-    } catch (reason) {
-      setSyncState({
-        status: 'error',
-        message: reason.message || 'Non è stato possibile sincronizzare Garmin.',
-      })
-    }
-  }
-
   return (
     <div className="app-shell">
       <header className="site-header">
