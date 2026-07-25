@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rundat-v1'
+const CACHE_NAME = 'rundat-v2'
 const APP_SHELL = ['/', '/manifest.webmanifest', '/logo.svg', '/logo.png']
 
 self.addEventListener('install', (event) => {
@@ -22,6 +22,11 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return
 
   if (url.pathname.startsWith('/api/')) {
+    event.respondWith(networkFirst(request))
+    return
+  }
+
+  if (request.mode === 'navigate') {
     event.respondWith(networkFirst(request))
     return
   }

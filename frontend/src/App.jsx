@@ -158,19 +158,24 @@ function App() {
         </a>
         <nav className="main-nav" aria-label="Navigazione principale">
           <a href="#dashboard" aria-current={view === 'dashboard' ? 'page' : undefined}>
-            Dashboard
+            <span className="nav-icon" aria-hidden="true">⌂</span>
+            <span>Dashboard</span>
           </a>
           <a href="#activities" aria-current={view === 'activities' ? 'page' : undefined}>
-            Attività
+            <span className="nav-icon" aria-hidden="true">≡</span>
+            <span>Attività</span>
           </a>
           <a href="#analytics" aria-current={view === 'analytics' ? 'page' : undefined}>
-            Analisi
+            <span className="nav-icon" aria-hidden="true">◫</span>
+            <span>Analisi</span>
           </a>
           <a href="#trends" aria-current={view === 'trends' ? 'page' : undefined}>
-            Trend
+            <span className="nav-icon" aria-hidden="true">↗</span>
+            <span>Trend</span>
           </a>
           <a href="#profilo" aria-current={view === 'profile' ? 'page' : undefined}>
-            Profilo
+            <span className="nav-icon" aria-hidden="true">○</span>
+            <span>Profilo</span>
           </a>
         </nav>
       </header>
