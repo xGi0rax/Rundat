@@ -1,11 +1,14 @@
 from contextlib import asynccontextmanager
 import logging
+import os
+import secrets
 from threading import Lock
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from config import CSV_FILE, get_cors_origins
+from config import CSV_FILE, get_access_token, get_cors_origins
 from schemas import ActivitySummary, DashboardSummary, PersonalBest, PersonalBestHistory, SyncRun
 from services.activity_repository import count_activities
 from services.activity_service import (
@@ -19,6 +22,30 @@ from services.sync_service import list_sync_runs, sync_csv, sync_garmin
 
 LOGGER = logging.getLogger(__name__)
 SYNC_LOCK = Lock()
+BEARER_SCHEME = HTTPBearer(auto_error=False)
+
+
+def require_access_token(
+    credentials: HTTPAuthorizationCredentials | None = Depends(BEARER_SCHEME),
+) -> None:
+    expected = get_access_token()
+    if not expected:
+        if os.getenv("VERCEL"):
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="RUNDAT_ACCESS_TOKEN non è configurato.",
+            )
+        return
+    if (
+        credentials is None
+        or credentials.scheme.lower() != "bearer"
+        or not secrets.compare_digest(credentials.credentials, expected)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Codice di accesso non valido.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 
 @asynccontextmanager
@@ -42,30 +69,50 @@ app.add_middleware(
 
 @app.get("/api/health")
 def health_endpoint():
-    return {"status": "ok"}
+    return {"status": "ok", "authenticationRequired": bool(get_access_token())}
 
 
-@app.get("/api/activities", response_model=list[ActivitySummary])
+@app.get(
+    "/api/activities",
+    response_model=list[ActivitySummary],
+    dependencies=[Depends(require_access_token)],
+)
 def activities_endpoint():
     return get_activities()
 
 
-@app.get("/api/pbs", response_model=dict[str, PersonalBest])
+@app.get(
+    "/api/pbs",
+    response_model=dict[str, PersonalBest],
+    dependencies=[Depends(require_access_token)],
+)
 def personal_bests_endpoint():
     return get_personal_bests()
 
 
-@app.get("/api/pbs/history", response_model=list[PersonalBestHistory])
+@app.get(
+    "/api/pbs/history",
+    response_model=list[PersonalBestHistory],
+    dependencies=[Depends(require_access_token)],
+)
 def personal_best_history_endpoint():
     return get_personal_best_history()
 
 
-@app.get("/api/dashboard", response_model=DashboardSummary)
+@app.get(
+    "/api/dashboard",
+    response_model=DashboardSummary,
+    dependencies=[Depends(require_access_token)],
+)
 def dashboard_endpoint():
     return get_dashboard()
 
 
-@app.post("/api/sync/csv", response_model=SyncRun)
+@app.post(
+    "/api/sync/csv",
+    response_model=SyncRun,
+    dependencies=[Depends(require_access_token)],
+)
 def sync_csv_endpoint():
     if not SYNC_LOCK.acquire(blocking=False):
         raise HTTPException(status_code=409, detail="Una sincronizzazione è già in corso.")
@@ -80,7 +127,11 @@ def sync_csv_endpoint():
         SYNC_LOCK.release()
 
 
-@app.post("/api/sync/garmin", response_model=SyncRun)
+@app.post(
+    "/api/sync/garmin",
+    response_model=SyncRun,
+    dependencies=[Depends(require_access_token)],
+)
 def sync_garmin_endpoint():
     if not SYNC_LOCK.acquire(blocking=False):
         raise HTTPException(status_code=409, detail="Una sincronizzazione è già in corso.")
@@ -96,6 +147,10 @@ def sync_garmin_endpoint():
         SYNC_LOCK.release()
 
 
-@app.get("/api/sync/history", response_model=list[SyncRun])
+@app.get(
+    "/api/sync/history",
+    response_model=list[SyncRun],
+    dependencies=[Depends(require_access_token)],
+)
 def sync_history_endpoint(limit: int = Query(default=20, ge=1, le=100)):
     return list_sync_runs(limit)

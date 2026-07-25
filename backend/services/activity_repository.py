@@ -24,7 +24,8 @@ ACTIVITY_COLUMNS = (
 
 def count_activities(db_path: Path | None = None) -> int:
     with connect(db_path) as connection:
-        return int(connection.execute("SELECT COUNT(*) FROM activities").fetchone()[0])
+        row = connection.execute("SELECT COUNT(*) AS activity_count FROM activities").fetchone()
+        return int(row["activity_count"])
 
 
 def upsert_activities(activities: Iterable[dict[str, Any]], db_path: Path | None = None) -> dict[str, int]:
@@ -93,7 +94,10 @@ def list_activities(db_path: Path | None = None) -> list[dict[str, Any]]:
 
 def latest_activity_start(db_path: Path | None = None) -> datetime | None:
     with connect(db_path) as connection:
-        value = connection.execute("SELECT MAX(start_time_local) FROM activities").fetchone()[0]
+        row = connection.execute(
+            "SELECT MAX(start_time_local) AS latest_start FROM activities"
+        ).fetchone()
+        value = row["latest_start"]
     return datetime.fromisoformat(value) if value else None
 
 

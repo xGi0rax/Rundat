@@ -1,0 +1,17 @@
+{
+  "name": "Rundat",
+  "short_name": "Rundat",
+  "description": "Dashboard personale per le attività di corsa Garmin.",
+  "start_url": "/#dashboard",
+  "display": "standalone",
+  "background_color": "#f7f4ef",
+  "theme_color": "#ed5f3d",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

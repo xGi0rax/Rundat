@@ -24,3 +24,5 @@ __pycache__/
 .DS_Store
 
 .idea/
+.vercel/
+.pytest_cache/

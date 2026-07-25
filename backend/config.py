@@ -19,3 +19,13 @@ def get_cors_origins() -> list[str]:
 
 def get_db_path() -> Path:
     return Path(os.getenv("RUNDAT_DB_PATH", DEFAULT_DB_FILE)).expanduser().resolve()
+
+
+def get_database_url() -> str | None:
+    value = os.getenv("DATABASE_URL", "").strip()
+    return value or None
+
+
+def get_access_token() -> str | None:
+    value = os.getenv("RUNDAT_ACCESS_TOKEN", "").strip()
+    return value or None
