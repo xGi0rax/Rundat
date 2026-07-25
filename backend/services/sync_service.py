@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +21,7 @@ from services.personal_record_repository import replace_personal_records
 
 LOGGER = logging.getLogger(__name__)
 MAX_HR_ZONE_FETCHES_PER_SYNC = 20
+SYNC_OVERLAP_DAYS = 7
 
 
 def sync_csv(csv_path: Path | None = None, db_path: Path | None = None) -> dict[str, Any]:
@@ -55,6 +56,11 @@ def sync_garmin(db_path: Path | None = None) -> dict[str, Any]:
     try:
         client = get_client()
         newest_known = latest_activity_start(db_path)
+        refresh_cutoff = (
+            newest_known - timedelta(days=SYNC_OVERLAP_DAYS)
+            if newest_known
+            else None
+        )
         raw_activities = []
         start = 0
         limit = 100
@@ -69,7 +75,7 @@ def sync_garmin(db_path: Path | None = None) -> dict[str, Any]:
                 if activity_type.get("typeKey") != "running":
                     continue
                 activity_time = datetime.fromisoformat(str(raw["startTimeLocal"]))
-                if newest_known and activity_time < newest_known:
+                if refresh_cutoff and activity_time < refresh_cutoff:
                     reached_known_data = True
                     break
                 raw_activities.append(raw)
@@ -122,10 +128,14 @@ def list_sync_runs(limit: int = 20, db_path: Path | None = None) -> list[dict[st
 def _start_run(source: str, db_path: Path | None) -> int:
     with connect(db_path) as connection:
         cursor = connection.execute(
-            "INSERT INTO sync_runs (source, status, started_at) VALUES (?, 'running', ?)",
+            """
+            INSERT INTO sync_runs (source, status, started_at)
+            VALUES (?, 'running', ?)
+            RETURNING id
+            """,
             (source, datetime.now().isoformat(timespec="seconds")),
         )
-        return int(cursor.lastrowid)
+        return int(cursor.fetchone()["id"])
 
 
 def _finish_run(

@@ -1,7 +1,13 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import './App.css'
+import AccessGate from './components/AccessGate.jsx'
 import StatusPanel from './components/StatusPanel.jsx'
-import { fetchJson } from './services/api.js'
+import {
+  clearAccessToken,
+  fetchJson,
+  hasAccessToken,
+  saveAccessToken,
+} from './services/api.js'
 
 const Activities = lazy(() => import('./components/Activities.jsx'))
 const Analytics = lazy(() => import('./components/Analytics.jsx'))
@@ -20,7 +26,7 @@ function currentView() {
 function App() {
   const [view, setView] = useState(currentView)
   const [data, setData] = useState({ dashboard: null, activities: [], recordHistory: null })
-  const [status, setStatus] = useState('loading')
+  const [status, setStatus] = useState('checking')
   const [error, setError] = useState('')
   const [requestId, setRequestId] = useState(0)
   const [syncState, setSyncState] = useState({ status: 'idle', message: '' })
@@ -32,6 +38,25 @@ function App() {
   }, [])
 
   useEffect(() => {
+    const controller = new AbortController()
+    fetchJson('/api/health', { signal: controller.signal })
+      .then((health) => {
+        if (health.authenticationRequired && !hasAccessToken()) {
+          setStatus('auth')
+        } else {
+          loadData()
+        }
+      })
+      .catch((reason) => {
+        if (reason.name !== 'AbortError') {
+          setError(reason.message || 'Il servizio non è raggiungibile.')
+          setStatus('error')
+        }
+      })
+    return () => controller.abort()
+  }, [loadData])
+
+  useEffect(() => {
     const handleHashChange = () => setView(currentView())
     window.addEventListener('hashchange', handleHashChange)
     if (!window.location.hash) window.history.replaceState(null, '', '#dashboard')
@@ -39,6 +64,7 @@ function App() {
   }, [])
 
   useEffect(() => {
+    if (status !== 'loading') return undefined
     const controller = new AbortController()
 
     fetchJson('/api/activities', { signal: controller.signal })
@@ -48,13 +74,80 @@ function App() {
       })
       .catch((reason) => {
         if (reason.name !== 'AbortError') {
-          setError(reason.message || 'Non è stato possibile caricare i dati.')
-          setStatus('error')
+          if (reason.status === 401) {
+            clearAccessToken()
+            setError('Codice di accesso non valido.')
+            setStatus('auth')
+          } else {
+            setError(reason.message || 'Non è stato possibile caricare i dati.')
+            setStatus('error')
+          }
         }
       })
 
     return () => controller.abort()
-  }, [requestId])
+  }, [requestId, status])
+
+  useEffect(() => {
+    if (status !== 'success') return undefined
+    const controller = new AbortController()
+
+    if (view === 'profile' && data.dashboard == null) {
+      fetchJson('/api/dashboard', { signal: controller.signal })
+        .then((dashboard) => setData((current) => ({ ...current, dashboard })))
+        .catch((reason) => {
+          if (reason.name !== 'AbortError') {
+            setError(reason.message)
+            setStatus('error')
+          }
+        })
+    }
+    if (view === 'trends' && data.recordHistory == null) {
+      fetchJson('/api/pbs/history', { signal: controller.signal })
+        .then((recordHistory) => setData((current) => ({ ...current, recordHistory })))
+        .catch((reason) => {
+          if (reason.name !== 'AbortError') {
+            setError(reason.message)
+            setStatus('error')
+          }
+        })
+    }
+    return () => controller.abort()
+  }, [data.dashboard, data.recordHistory, status, view])
+
+  const syncGarmin = async () => {
+    setSyncState({ status: 'loading', message: 'Sincronizzazione con Garmin in corso…' })
+    try {
+      const result = await fetchJson('/api/sync/garmin', { method: 'POST' })
+      const activities = await fetchJson('/api/activities')
+      const changed = result.insertedCount + result.updatedCount
+      const zonesMessage = result.hrZoneCount > 0
+        ? ` Zone cardio aggiunte a ${result.hrZoneCount} attività.`
+        : ''
+      const message = changed > 0
+        ? `${result.insertedCount} nuove, ${result.updatedCount} aggiornate.${zonesMessage}`
+        : zonesMessage || 'Tutto aggiornato: nessuna nuova attività o zona cardio.'
+      setData({ dashboard: null, activities, recordHistory: null })
+      setSyncState({ status: 'success', message })
+    } catch (reason) {
+      if (reason.status === 401) {
+        clearAccessToken()
+        setError('Il codice di accesso è cambiato. Inserisci quello nuovo.')
+        setStatus('auth')
+        return
+      }
+      setSyncState({
+        status: 'error',
+        message: reason.message || 'Non è stato possibile sincronizzare Garmin.',
+      })
+    }
+  }
+
+  const authenticate = (token) => {
+    saveAccessToken(token)
+    setError('')
+    loadData()
+  }
 
   useEffect(() => {
     if (status !== 'success') return undefined
@@ -132,7 +225,8 @@ function App() {
       </header>
 
       <main id="main-content">
-        {status === 'loading' && <StatusPanel type="loading" />}
+        {(status === 'checking' || status === 'loading') && <StatusPanel type="loading" />}
+        {status === 'auth' && <AccessGate message={error} onSubmit={authenticate} />}
         {status === 'error' && <StatusPanel type="error" message={error} onRetry={loadData} />}
         {status === 'success' && data.activities.length === 0 && <StatusPanel type="empty" />}
         {status === 'success' && data.activities.length > 0 && (

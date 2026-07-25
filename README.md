@@ -13,8 +13,17 @@ analizzare volume, passo, frequenza cardiaca, record e trend.
 - `frontend/src/domain/`: analisi statistiche testabili senza React;
 - `frontend/src/components/`: pagine e componenti di presentazione.
 
-I dati applicativi rimangono in `backend/rundat.db`; credenziali e token Garmin
-rimangono locali e sono esclusi da Git.
+In locale i dati rimangono in `backend/rundat.db`. In produzione Rundat usa
+PostgreSQL/Supabase; credenziali e token Garmin restano server-side e sono
+esclusi da Git.
+
+## Pubblicazione personale
+
+Il repository è predisposto per una singola distribuzione Vercel contenente
+frontend Vite e API FastAPI, con persistenza su Supabase PostgreSQL, accesso
+personale tramite token e installazione PWA su iPhone.
+
+La procedura completa è in [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## Avvio locale
 
@@ -33,6 +42,10 @@ Il CSV predefinito è `backend/running_activities_FULL.csv`. `activityId` è la
 chiave univoca degli import incrementali. Il database può essere spostato con
 `RUNDAT_DB_PATH`; le origini CORS si configurano, separate da virgola, con
 `RUNDAT_CORS_ORIGINS`.
+
+Se `DATABASE_URL` è configurata, il backend utilizza PostgreSQL al posto di
+SQLite. `RUNDAT_ACCESS_TOKEN` abilita la protezione Bearer dell'API ed è
+obbligatoria su Vercel.
 
 ### Frontend
 
@@ -70,7 +83,7 @@ npm run check
 
 ## Nota di sicurezza
 
-Rundat contiene dati sanitari/personali e gli endpoint di sincronizzazione non
-implementano autenticazione utente. È adatto all'esecuzione locale o dietro un
-reverse proxy/VPN con autenticazione e TLS. Non esporre direttamente l'API su
-Internet.
+Rundat contiene dati sanitari/personali. In produzione utilizzare un
+`RUNDAT_ACCESS_TOKEN` lungo e casuale, non esporre `DATABASE_URL` o credenziali
+Garmin nel frontend e mantenere attiva la Row Level Security predisposta dallo
+schema Supabase.

@@ -1896,6 +1896,45 @@ tbody tr:hover {
   background: var(--accent-dark);
 }
 
+.access-panel {
+  align-content: center;
+}
+
+.access-form {
+  display: grid;
+  width: min(100%, 360px);
+  margin-top: 24px;
+  text-align: left;
+}
+
+.access-form label {
+  margin-bottom: 8px;
+  color: var(--ink);
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.access-form input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--ink);
+  background: white;
+  font: inherit;
+}
+
+.access-form .primary-button {
+  width: 100%;
+}
+
+.access-error {
+  margin-top: 10px;
+  color: var(--warning);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }

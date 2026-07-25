@@ -37,10 +37,11 @@ def replace_personal_records(
         )
         connection.executemany(
             """
-            INSERT OR IGNORE INTO personal_record_history (
+            INSERT INTO personal_record_history (
                 record_key, type_id, activity_id, distance_km, duration,
                 record_date, raw_data, observed_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT (record_key, activity_id, duration) DO NOTHING
             """,
             [
                 (
