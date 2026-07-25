@@ -3,7 +3,7 @@
   "framework": "fastapi",
   "fluid": true,
   "regions": ["fra1"],
-  "installCommand": "npm --prefix frontend install --include=dev --no-audit --no-fund",
+  "installCommand": "python -m pip install --disable-pip-version-check -r requirements.txt && npm --prefix frontend install --include=dev --no-audit --no-fund",
   "buildCommand": "npm --prefix frontend run build",
   "outputDirectory": "frontend/dist",
   "functions": {
