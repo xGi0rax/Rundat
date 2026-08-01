@@ -17,6 +17,7 @@ const periods = [7, 14, 30, 60, 90, 180]
 const shortMonth = new Intl.DateTimeFormat('it-IT', { month: 'short' })
 const volumeGranularities = [
   { value: 'day', label: 'Giorni' },
+  { value: 'week', label: 'Settimane' },
   { value: 'month', label: 'Mesi' },
   { value: 'year', label: 'Anni' },
 ]
