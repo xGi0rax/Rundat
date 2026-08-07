@@ -83,6 +83,15 @@ def initialize_database(db_path: Path | None = None) -> None:
         for statement in statements:
             connection.execute(statement)
         if connection.dialect == "sqlite":
+            activity_columns = {
+                row["name"]
+                for row in connection.execute("PRAGMA table_info(activities)").fetchall()
+            }
+            if "activity_type" not in activity_columns:
+                connection.execute(
+                    "ALTER TABLE activities "
+                    "ADD COLUMN activity_type TEXT NOT NULL DEFAULT 'running'"
+                )
             sync_run_columns = {
                 row["name"]
                 for row in connection.execute("PRAGMA table_info(sync_runs)").fetchall()
@@ -93,6 +102,10 @@ def initialize_database(db_path: Path | None = None) -> None:
                     "ADD COLUMN hr_zone_count INTEGER NOT NULL DEFAULT 0"
                 )
         else:
+            connection.execute(
+                "ALTER TABLE activities "
+                "ADD COLUMN IF NOT EXISTS activity_type TEXT NOT NULL DEFAULT 'running'"
+            )
             connection.execute(
                 "ALTER TABLE sync_runs "
                 "ADD COLUMN IF NOT EXISTS hr_zone_count INTEGER NOT NULL DEFAULT 0"
@@ -122,6 +135,8 @@ def _common_schema_statements(sync_run_id: str) -> tuple[str, ...]:
         CREATE TABLE IF NOT EXISTS activities (
             activity_id BIGINT PRIMARY KEY,
             activity_name TEXT,
+            activity_type TEXT NOT NULL DEFAULT 'running'
+                CHECK (activity_type IN ('running', 'cycling')),
             start_time_local TEXT NOT NULL,
             distance DOUBLE PRECISION NOT NULL CHECK (distance >= 0),
             duration DOUBLE PRECISION NOT NULL CHECK (duration >= 0),

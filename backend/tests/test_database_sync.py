@@ -123,6 +123,24 @@ class DatabaseSyncTests(unittest.TestCase):
             "high_bpm": None,
         }])
 
+    def test_running_and_cycling_types_are_normalized_and_persisted(self):
+        self.rows[0]["activityType"] = {"typeKey": "running"}
+        self.rows[1]["activityType"] = {"typeKey": "cycling"}
+        pd.DataFrame(self.rows).to_csv(self.csv_path, index=False)
+
+        sync_csv(self.csv_path, self.db_path)
+        activities = get_activities(self.db_path)
+
+        self.assertEqual(
+            {activity["activityType"] for activity in activities},
+            {"running", "cycling"},
+        )
+        dashboard = DashboardSummary.model_validate(
+            get_dashboard(datetime(2026, 7, 22, 12, 0), self.db_path)
+        )
+        self.assertEqual(dashboard.total_activities, 1)
+        self.assertEqual(dashboard.latest_activity.activity_type, "running")
+
     def test_dashboard_contract_is_preserved_after_migration(self):
         sync_csv(self.csv_path, self.db_path)
         result = get_dashboard(datetime(2026, 7, 22, 12, 0), self.db_path)

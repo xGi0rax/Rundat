@@ -98,7 +98,7 @@ function Activities({ activities }) {
       <section className="page-heading compact-heading">
         <div>
           <p className="eyebrow">Archivio</p>
-          <h1>Tutte le attività</h1>
+          <h1>Tutte le corse</h1>
           <p>{activities.length.toLocaleString('it-IT')} corse registrate.</p>
         </div>
       </section>

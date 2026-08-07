@@ -10,6 +10,7 @@ from services.hr_zone_repository import list_hr_zones_by_activity
 ACTIVITY_COLUMNS = (
     "activity_id",
     "activity_name",
+    "activity_type",
     "start_time_local",
     "distance",
     "duration",
@@ -36,7 +37,7 @@ def upsert_activities(activities: Iterable[dict[str, Any]], db_path: Path | None
         for activity in activities:
             values = tuple(activity[column] for column in ACTIVITY_COLUMNS)
             existing = connection.execute(
-                "SELECT activity_name, start_time_local, distance, duration, average_speed, "
+                "SELECT activity_name, activity_type, start_time_local, distance, duration, average_speed, "
                 "average_hr, max_hr, calories, elevation_gain, raw_data "
                 "FROM activities WHERE activity_id = ?",
                 (activity["activity_id"],),
@@ -50,12 +51,13 @@ def upsert_activities(activities: Iterable[dict[str, Any]], db_path: Path | None
             connection.execute(
                 """
                 INSERT INTO activities (
-                    activity_id, activity_name, start_time_local, distance, duration,
+                    activity_id, activity_name, activity_type, start_time_local, distance, duration,
                     average_speed, average_hr, max_hr, calories, elevation_gain,
                     raw_data, synced_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(activity_id) DO UPDATE SET
                     activity_name = excluded.activity_name,
+                    activity_type = excluded.activity_type,
                     start_time_local = excluded.start_time_local,
                     distance = excluded.distance,
                     duration = excluded.duration,
@@ -74,16 +76,23 @@ def upsert_activities(activities: Iterable[dict[str, Any]], db_path: Path | None
     return counts
 
 
-def list_activities(db_path: Path | None = None) -> list[dict[str, Any]]:
+def list_activities(
+    db_path: Path | None = None,
+    activity_type: str | None = None,
+) -> list[dict[str, Any]]:
+    type_filter = "AND activity_type = ?" if activity_type else ""
+    parameters = (activity_type,) if activity_type else ()
     with connect(db_path) as connection:
         rows = connection.execute(
-            """
-            SELECT activity_id, activity_name, start_time_local, distance, duration,
+            f"""
+            SELECT activity_id, activity_name, activity_type, start_time_local, distance, duration,
                    average_speed, average_hr, max_hr, calories, elevation_gain
             FROM activities
             WHERE distance >= 1000
+            {type_filter}
             ORDER BY start_time_local DESC
-            """
+            """,
+            parameters,
         ).fetchall()
     zones_by_activity = list_hr_zones_by_activity(db_path)
     return [
@@ -92,10 +101,16 @@ def list_activities(db_path: Path | None = None) -> list[dict[str, Any]]:
     ]
 
 
-def latest_activity_start(db_path: Path | None = None) -> datetime | None:
+def latest_activity_start(
+    db_path: Path | None = None,
+    activity_type: str | None = None,
+) -> datetime | None:
+    type_filter = " WHERE activity_type = ?" if activity_type else ""
+    parameters = (activity_type,) if activity_type else ()
     with connect(db_path) as connection:
         row = connection.execute(
-            "SELECT MAX(start_time_local) AS latest_start FROM activities"
+            f"SELECT MAX(start_time_local) AS latest_start FROM activities{type_filter}",
+            parameters,
         ).fetchone()
         value = row["latest_start"]
     return datetime.fromisoformat(value) if value else None
@@ -106,6 +121,7 @@ def _row_to_summary(row, heart_rate_zones: list[dict[str, Any]] | None = None) -
     return {
         "activityId": row["activity_id"],
         "activityName": row["activity_name"],
+        "activityType": row["activity_type"],
         "startTimeLocal": row["start_time_local"],
         "distance": row["distance"],
         "km": round(row["distance"] / 1000, 2),

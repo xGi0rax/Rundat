@@ -61,6 +61,7 @@ def _activity_summary(row: pd.Series) -> dict[str, Any]:
     return {
         'activityId': int(row['activityId']),
         'activityName': _optional_number(row.get('activityName')),
+        'activityType': 'running',
         'startTimeLocal': start_time.to_pydatetime() if hasattr(start_time, 'to_pydatetime') else start_time,
         'distance': float(row['distance']),
         'km': float(row['km']),

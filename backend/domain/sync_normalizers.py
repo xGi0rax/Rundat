@@ -11,6 +11,7 @@ GARMIN_RUNNING_RECORD_TYPES = {
     5: ("Half Marathon", 21.0975),
     6: ("Full Marathon", 42.195),
 }
+SUPPORTED_ACTIVITY_TYPES = {"running", "cycling"}
 
 
 def _encode_raw_data(data: dict[str, Any]) -> str:
@@ -41,6 +42,21 @@ def float_or_none(value: Any) -> float | None:
     return number if math.isfinite(number) else None
 
 
+def normalize_activity_type(raw: dict[str, Any]) -> str:
+    activity_type = clean_value(raw.get("activityType"))
+    if isinstance(activity_type, dict):
+        value = activity_type.get("typeKey") or activity_type.get("parentTypeId")
+    else:
+        value = activity_type
+    value = clean_value(raw.get("activityTypeKey")) or value
+    normalized = str(value or "running").strip().lower()
+    if "cycl" in normalized or "bik" in normalized:
+        return "cycling"
+    if "run" in normalized:
+        return "running"
+    return normalized
+
+
 def normalize_activity(raw: dict[str, Any]) -> dict[str, Any] | None:
     activity_id = clean_value(raw.get("activityId"))
     start_time = clean_value(raw.get("startTimeLocal"))
@@ -68,6 +84,7 @@ def normalize_activity(raw: dict[str, Any]) -> dict[str, Any] | None:
     return {
         "activity_id": normalized_id,
         "activity_name": clean_value(raw.get("activityName")),
+        "activity_type": normalize_activity_type(raw),
         "start_time_local": start_time.isoformat(timespec="seconds"),
         "distance": distance,
         "duration": duration,

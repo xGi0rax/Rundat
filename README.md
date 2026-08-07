@@ -1,7 +1,7 @@
 # Rundat
 
-Dashboard personale per importare attività di corsa da CSV o Garmin Connect e
-analizzare volume, passo, frequenza cardiaca, record e trend.
+Dashboard personale per importare attività di corsa e bici da CSV o Garmin Connect,
+riunire il carico nelle zone cardiache e analizzare volume, passo, record e trend.
 
 ## Architettura
 

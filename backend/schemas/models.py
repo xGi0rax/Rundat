@@ -19,6 +19,7 @@ class HeartRateZone(ApiModel):
 class ActivitySummary(ApiModel):
     activity_id: int = Field(alias="activityId")
     activity_name: str | None = Field(default=None, alias="activityName")
+    activity_type: Literal["running", "cycling"] = Field(alias="activityType")
     start_time_local: datetime = Field(alias="startTimeLocal")
     distance: float = Field(ge=0, description="Distance in metres")
     km: float = Field(ge=0)

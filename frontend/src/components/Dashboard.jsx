@@ -658,7 +658,19 @@ function HeartRateZoneAnalysis({ latest, historical }) {
 function Dashboard({ activities, syncState, onSync }) {
   const analysis = useMemo(() => analyzeDashboard(activities), [activities])
 
-  if (!analysis) return null
+  if (!analysis) {
+    return (
+      <div className="page-stack">
+        <section className="page-heading compact-heading">
+          <div>
+            <p className="eyebrow">Dashboard corsa</p>
+            <h1>Nessuna corsa disponibile.</h1>
+            <p>Sincronizza Garmin dalla dashboard generale per importare le attività.</p>
+          </div>
+        </section>
+      </div>
+    )
+  }
 
   const paceAxisFormatter = (seconds) => formatPaceDecimal(seconds / 60)
   const paceFormatter = (seconds) => `${formatPaceDecimal(seconds / 60)} /km`
@@ -720,7 +732,7 @@ function Dashboard({ activities, syncState, onSync }) {
     <div className="page-stack">
       <section className="page-heading latest-analysis-heading">
         <div>
-          <p className="eyebrow">Dashboard</p>
+          <p className="eyebrow">Dashboard corsa</p>
           <h1>Dentro la tua ultima corsa.</h1>
           <p>
             Confronti con attività simili per capire se stai correndo più velocemente

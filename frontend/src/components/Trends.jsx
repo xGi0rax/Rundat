@@ -437,8 +437,8 @@ function TrendChart({ metric: baseMetric, data, granularity }) {
                 name={metric.title}
                 stroke={metric.color}
                 strokeWidth={3}
-                dot={false}
-                activeDot={false}
+                dot={{ fill: '#ffffff', stroke: metric.color, strokeWidth: 2, r: 3 }}
+                activeDot={{ fill: metric.color, stroke: '#ffffff', strokeWidth: 2, r: 5 }}
                 connectNulls={false}
               />
               <Line
@@ -502,7 +502,10 @@ function RecordTrend({ history, start, period }) {
             <h2>Progressione dei record personali</h2>
             <TrendBadge percent={analysis.percent} lowerIsBetter />
           </div>
-          <p>Ogni punto rappresenta un record restituito da Garmin Connect.</p>
+          <p>
+            Lo storico parte dalla prima sincronizzazione e aggiunge un punto solo quando Garmin
+            restituisce un nuovo primato.
+          </p>
         </div>
         {availableRecords.length > 0 && (
           <div className="record-trend-selector" role="group" aria-label="Distanza del record">
@@ -554,8 +557,8 @@ function RecordTrend({ history, start, period }) {
                 dataKey="duration"
                 stroke="#ef5b24"
                 strokeWidth={3}
-                dot={false}
-                activeDot={false}
+                dot={{ fill: '#ffffff', stroke: '#ef5b24', strokeWidth: 3, r: 4 }}
+                activeDot={{ fill: '#ef5b24', stroke: '#ffffff', strokeWidth: 2, r: 6 }}
               />
               {data.length > 1 ? (
                 <Line
@@ -583,7 +586,7 @@ function RecordTrend({ history, start, period }) {
       ) : (
         <div className="record-trend-empty">
           <strong>Nessuno storico disponibile</strong>
-          <p>Sincronizza Garmin per salvare il primo punto dei tuoi record.</p>
+          <p>Sincronizza Garmin per salvare il primo punto; i successivi arrivano con nuovi primati.</p>
         </div>
       )}
     </article>

@@ -42,7 +42,7 @@ def get_personal_best_history(db_path: Path | None = None) -> list[dict[str, Any
 
 
 def get_dashboard(now: datetime | None = None, db_path: Path | None = None) -> dict[str, Any]:
-    activities = list_activities(db_path)
+    activities = list_activities(db_path, activity_type="running")
     reference_time = now or datetime.now()
     recent_cutoff = reference_time - timedelta(days=7)
     total_distance = sum(activity["distance"] for activity in activities)

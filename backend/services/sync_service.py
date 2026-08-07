@@ -5,8 +5,10 @@ from typing import Any
 
 from config import CSV_FILE
 from domain.sync_normalizers import (
+    SUPPORTED_ACTIVITY_TYPES,
     clean_value as _clean_value,
     normalize_activity,
+    normalize_activity_type,
     normalize_hr_zones,
     normalize_personal_records,
 )
@@ -34,13 +36,18 @@ def sync_csv(csv_path: Path | None = None, db_path: Path | None = None) -> dict[
     try:
         frame = pd.read_csv(path)
         raw_rows = frame.to_dict("records")
-        normalized = [item for item in (normalize_activity(row) for row in raw_rows) if item]
+        normalized = [
+            item
+            for item in (normalize_activity(row) for row in raw_rows)
+            if item and item["activity_type"] in SUPPORTED_ACTIVITY_TYPES
+        ]
         counts = upsert_activities(normalized, db_path)
         counts["zones"] = 0
+        imported_activity_ids = {activity["activity_id"] for activity in normalized}
         for raw in raw_rows:
             activity_id = _clean_value(raw.get("activityId"))
             zones = normalize_hr_zones(raw)
-            if activity_id is not None and zones:
+            if activity_id is not None and int(activity_id) in imported_activity_ids and zones:
                 replace_activity_hr_zones(int(activity_id), zones, raw, db_path)
                 counts["zones"] += 1
         return _finish_run(run_id, "success", counts, db_path=db_path)
@@ -55,33 +62,47 @@ def sync_garmin(db_path: Path | None = None) -> dict[str, Any]:
     run_id = _start_run("garmin", db_path)
     try:
         client = get_client()
-        newest_known = latest_activity_start(db_path)
-        refresh_cutoff = (
-            newest_known - timedelta(days=SYNC_OVERLAP_DAYS)
-            if newest_known
-            else None
-        )
+        refresh_cutoffs = {
+            activity_type: (
+                newest - timedelta(days=SYNC_OVERLAP_DAYS) if newest else None
+            )
+            for activity_type in SUPPORTED_ACTIVITY_TYPES
+            for newest in [latest_activity_start(db_path, activity_type)]
+        }
+        reached_known_data = {
+            activity_type: False for activity_type in SUPPORTED_ACTIVITY_TYPES
+        }
         raw_activities = []
         start = 0
         limit = 100
-        reached_known_data = False
 
-        while not reached_known_data:
+        while True:
             page = client.get_activities(start, limit)
             if not page:
                 break
             for raw in page:
-                activity_type = raw.get("activityType") or {}
-                if activity_type.get("typeKey") != "running":
+                activity_type = normalize_activity_type(raw)
+                if activity_type not in SUPPORTED_ACTIVITY_TYPES:
                     continue
                 activity_time = datetime.fromisoformat(str(raw["startTimeLocal"]))
+                refresh_cutoff = refresh_cutoffs[activity_type]
                 if refresh_cutoff and activity_time < refresh_cutoff:
-                    reached_known_data = True
-                    break
+                    reached_known_data[activity_type] = True
+                    continue
                 raw_activities.append(raw)
             start += limit
+            if all(
+                refresh_cutoffs[activity_type] is not None
+                and reached_known_data[activity_type]
+                for activity_type in SUPPORTED_ACTIVITY_TYPES
+            ):
+                break
 
-        normalized = [item for item in (normalize_activity(raw) for raw in raw_activities) if item]
+        normalized = [
+            item
+            for item in (normalize_activity(raw) for raw in raw_activities)
+            if item and item["activity_type"] in SUPPORTED_ACTIVITY_TYPES
+        ]
         counts = upsert_activities(normalized, db_path)
         counts["zones"] = 0
         for activity_id in activity_ids_missing_hr_zones(

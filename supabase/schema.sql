@@ -1,6 +1,8 @@
 CREATE TABLE IF NOT EXISTS activities (
     activity_id BIGINT PRIMARY KEY,
     activity_name TEXT,
+    activity_type TEXT NOT NULL DEFAULT 'running'
+        CHECK (activity_type IN ('running', 'cycling')),
     start_time_local TEXT NOT NULL,
     distance DOUBLE PRECISION NOT NULL CHECK (distance >= 0),
     duration DOUBLE PRECISION NOT NULL CHECK (duration >= 0),
@@ -12,6 +14,9 @@ CREATE TABLE IF NOT EXISTS activities (
     raw_data TEXT NOT NULL,
     synced_at TEXT NOT NULL
 );
+
+ALTER TABLE activities
+ADD COLUMN IF NOT EXISTS activity_type TEXT NOT NULL DEFAULT 'running';
 
 CREATE INDEX IF NOT EXISTS idx_activities_start_time
 ON activities(start_time_local DESC);

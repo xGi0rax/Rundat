@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import './App.css'
 import AccessGate from './components/AccessGate.jsx'
 import StatusPanel from './components/StatusPanel.jsx'
@@ -8,14 +8,19 @@ import {
   hasAccessToken,
   saveAccessToken,
 } from './services/api.js'
+import { activitiesOfType } from './domain/activityAnalysis.js'
 
 const Activities = lazy(() => import('./components/Activities.jsx'))
 const Analytics = lazy(() => import('./components/Analytics.jsx'))
+const Cycling = lazy(() => import('./components/Cycling.jsx'))
 const Dashboard = lazy(() => import('./components/Dashboard.jsx'))
+const GeneralDashboard = lazy(() => import('./components/GeneralDashboard.jsx'))
 const Profile = lazy(() => import('./components/Profile.jsx'))
 const Trends = lazy(() => import('./components/Trends.jsx'))
 
 function currentView() {
+  if (window.location.hash === '#running') return 'running'
+  if (window.location.hash === '#cycling' || window.location.hash === '#bici') return 'cycling'
   if (window.location.hash === '#activities') return 'activities'
   if (window.location.hash === '#analytics') return 'analytics'
   if (window.location.hash === '#trends') return 'trends'
@@ -30,6 +35,14 @@ function App() {
   const [error, setError] = useState('')
   const [requestId, setRequestId] = useState(0)
   const [syncState, setSyncState] = useState({ status: 'idle', message: '' })
+  const runningActivities = useMemo(
+    () => activitiesOfType(data.activities, 'running'),
+    [data.activities],
+  )
+  const cyclingActivities = useMemo(
+    () => activitiesOfType(data.activities, 'cycling'),
+    [data.activities],
+  )
 
   const loadData = useCallback(() => {
     setStatus('loading')
@@ -161,9 +174,17 @@ function App() {
             <span className="nav-icon" aria-hidden="true">⌂</span>
             <span>Dashboard</span>
           </a>
+          <a href="#running" aria-current={view === 'running' ? 'page' : undefined}>
+            <span className="nav-icon" aria-hidden="true">◇</span>
+            <span>Corsa</span>
+          </a>
+          <a href="#bici" aria-current={view === 'cycling' ? 'page' : undefined}>
+            <span className="nav-icon" aria-hidden="true">◉</span>
+            <span>Bici</span>
+          </a>
           <a href="#activities" aria-current={view === 'activities' ? 'page' : undefined}>
             <span className="nav-icon" aria-hidden="true">≡</span>
-            <span>Attività</span>
+            <span>Archivio</span>
           </a>
           <a href="#analytics" aria-current={view === 'analytics' ? 'page' : undefined}>
             <span className="nav-icon" aria-hidden="true">◫</span>
@@ -188,19 +209,27 @@ function App() {
         {status === 'success' && data.activities.length > 0 && (
           <Suspense fallback={<StatusPanel type="loading" />}>
             {view === 'dashboard' && (
-              <Dashboard
+              <GeneralDashboard
                 activities={data.activities}
                 syncState={syncState}
                 onSync={syncGarmin}
               />
             )}
-            {view === 'profile' && (
-              <Profile summary={data.dashboard} activities={data.activities} />
+            {view === 'running' && (
+              <Dashboard
+                activities={runningActivities}
+                syncState={syncState}
+                onSync={syncGarmin}
+              />
             )}
-            {view === 'activities' && <Activities activities={data.activities} />}
-            {view === 'analytics' && <Analytics activities={data.activities} />}
+            {view === 'cycling' && <Cycling activities={cyclingActivities} />}
+            {view === 'profile' && (
+              <Profile summary={data.dashboard} activities={runningActivities} />
+            )}
+            {view === 'activities' && <Activities activities={runningActivities} />}
+            {view === 'analytics' && <Analytics activities={runningActivities} />}
             {view === 'trends' && (
-              <Trends activities={data.activities} recordHistory={data.recordHistory ?? []} />
+              <Trends activities={runningActivities} recordHistory={data.recordHistory ?? []} />
             )}
           </Suspense>
         )}

@@ -27,6 +27,13 @@ const volumeRanges = {
     { value: 14, label: '14g' },
     { value: 30, label: '30g' },
   ],
+  week: [
+    { value: 8, label: '8 settimane' },
+    { value: 12, label: '12 settimane' },
+    { value: 26, label: '6 mesi' },
+    { value: 52, label: '1 anno' },
+    { value: 'all', label: 'Tutto' },
+  ],
   month: [
     { value: 6, label: '6 mesi' },
     { value: 12, label: '1 anno' },
@@ -39,6 +46,7 @@ const volumeRanges = {
 }
 const defaultVolumeRanges = {
   day: 30,
+  week: 12,
   month: 12,
   year: 'all',
 }
@@ -199,6 +207,7 @@ function earliestActivityDate(activities) {
 
 function volumeBucketLabel(date, granularity) {
   if (granularity === 'day') return formatDate(date)
+  if (granularity === 'week') return `Settimana ${weekRangeLabel(localDateKey(date))}`
   if (granularity === 'month') {
     return new Intl.DateTimeFormat('it-IT', {
       month: 'long',
@@ -215,6 +224,9 @@ function aggregateVolume(activities, granularity, range) {
 
   if (granularity === 'day') {
     start = shiftDays(startOfDay(now), -(Number(range) - 1))
+  } else if (granularity === 'week') {
+    start = range === 'all' ? beginningOfWeek(earliest) : beginningOfWeek(now)
+    if (range !== 'all') start.setDate(start.getDate() - ((Number(range) - 1) * 7))
   } else if (granularity === 'month') {
     start = range === 'all' ? beginningOfMonth(earliest) : beginningOfMonth(now)
     if (range !== 'all') start.setMonth(start.getMonth() - (Number(range) - 1))
@@ -239,6 +251,7 @@ function aggregateVolume(activities, granularity, range) {
     byDate.set(date, bucket)
 
     if (granularity === 'day') cursor.setDate(cursor.getDate() + 1)
+    if (granularity === 'week') cursor.setDate(cursor.getDate() + 7)
     if (granularity === 'month') cursor.setMonth(cursor.getMonth() + 1)
     if (granularity === 'year') cursor.setFullYear(cursor.getFullYear() + 1)
   }
@@ -248,6 +261,7 @@ function aggregateVolume(activities, granularity, range) {
     if (Number.isNaN(activityDate.getTime()) || activityDate < start || activityDate > now) return
 
     let bucketDate = startOfDay(activityDate)
+    if (granularity === 'week') bucketDate = beginningOfWeek(activityDate)
     if (granularity === 'month') bucketDate = beginningOfMonth(activityDate)
     if (granularity === 'year') bucketDate = beginningOfYear(activityDate)
     const bucket = byDate.get(localDateKey(bucketDate))
@@ -604,6 +618,7 @@ function Analytics({ activities }) {
   const volumeTickFormatter = (value) => {
     const date = new Date(`${value}T00:00:00`)
     if (volumeGranularity === 'day') return formatDate(date, 'short')
+    if (volumeGranularity === 'week') return formatDate(date, 'short')
     if (volumeGranularity === 'year') return String(date.getFullYear())
     const month = shortMonth.format(date).replace('.', '')
     return volumeShowsYears ? `${month} ${String(date.getFullYear()).slice(-2)}` : month
@@ -611,6 +626,7 @@ function Analytics({ activities }) {
 
   const volumeSelectionTitle = {
     day: 'Giorno selezionato',
+    week: 'Settimana selezionata',
     month: 'Mese selezionato',
     year: 'Anno selezionato',
   }[volumeGranularity]
@@ -829,7 +845,7 @@ function Analytics({ activities }) {
           <div>
             <p className="eyebrow">Volume</p>
             <h2>Volume di corsa</h2>
-            <p>Visualizza i chilometri percorsi per giorno, mese o anno.</p>
+            <p>Visualizza i chilometri percorsi per giorno, settimana, mese o anno.</p>
           </div>
           <div className="volume-controls">
             <div className="period-control" role="group" aria-label="Raggruppamento del volume">
