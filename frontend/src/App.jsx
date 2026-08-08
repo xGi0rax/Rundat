@@ -171,31 +171,31 @@ function App() {
         </a>
         <nav className="main-nav" aria-label="Navigazione principale">
           <a href="#dashboard" aria-current={view === 'dashboard' ? 'page' : undefined}>
-            <span className="nav-icon" aria-hidden="true">⌂</span>
-            <span>Dashboard</span>
+            <span className="nav-icon" aria-hidden="true">🏠</span>
+            <span>Dashboard generale</span>
           </a>
           <a href="#running" aria-current={view === 'running' ? 'page' : undefined}>
-            <span className="nav-icon" aria-hidden="true">◇</span>
+            <span className="nav-icon" aria-hidden="true">🏃🏼‍♂️</span>
             <span>Corsa</span>
           </a>
           <a href="#bici" aria-current={view === 'cycling' ? 'page' : undefined}>
-            <span className="nav-icon" aria-hidden="true">◉</span>
+            <span className="nav-icon" aria-hidden="true">🚴‍♂️</span>
             <span>Bici</span>
           </a>
           <a href="#activities" aria-current={view === 'activities' ? 'page' : undefined}>
-            <span className="nav-icon" aria-hidden="true">≡</span>
-            <span>Archivio</span>
+            <span className="nav-icon" aria-hidden="true">📚</span>
+            <span>Archivio attività</span>
           </a>
           <a href="#analytics" aria-current={view === 'analytics' ? 'page' : undefined}>
-            <span className="nav-icon" aria-hidden="true">◫</span>
-            <span>Analisi</span>
+            <span className="nav-icon" aria-hidden="true">📊</span>
+            <span>Analisi corsa</span>
           </a>
           <a href="#trends" aria-current={view === 'trends' ? 'page' : undefined}>
-            <span className="nav-icon" aria-hidden="true">↗</span>
-            <span>Trend</span>
+            <span className="nav-icon" aria-hidden="true">📈</span>
+            <span>Trend corsa</span>
           </a>
           <a href="#profilo" aria-current={view === 'profile' ? 'page' : undefined}>
-            <span className="nav-icon" aria-hidden="true">○</span>
+            <span className="nav-icon" aria-hidden="true">👤</span>
             <span>Profilo</span>
           </a>
         </nav>
@@ -222,11 +222,17 @@ function App() {
                 onSync={syncGarmin}
               />
             )}
-            {view === 'cycling' && <Cycling activities={cyclingActivities} />}
+            {view === 'cycling' && (
+              <Cycling
+                activities={cyclingActivities}
+                syncState={syncState}
+                onSync={syncGarmin}
+              />
+            )}
             {view === 'profile' && (
               <Profile summary={data.dashboard} activities={runningActivities} />
             )}
-            {view === 'activities' && <Activities activities={runningActivities} />}
+            {view === 'activities' && <Activities activities={data.activities} />}
             {view === 'analytics' && <Analytics activities={runningActivities} />}
             {view === 'trends' && (
               <Trends activities={runningActivities} recordHistory={data.recordHistory ?? []} />

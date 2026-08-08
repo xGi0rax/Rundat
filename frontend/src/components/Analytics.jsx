@@ -11,9 +11,10 @@ import {
   YAxis,
 } from 'recharts'
 import ChartContainer from './ChartContainer.jsx'
+import PeriodPicker from './PeriodPicker.jsx'
 import { formatDate, formatDistance, formatDuration, formatPaceDecimal } from '../utils/formatters.js'
+import { periodLabel, periodRange, periodStart } from '../domain/periods.js'
 
-const periods = [7, 14, 30, 60, 90, 180]
 const shortMonth = new Intl.DateTimeFormat('it-IT', { month: 'short' })
 const volumeGranularities = [
   { value: 'day', label: 'Giorni' },
@@ -21,36 +22,6 @@ const volumeGranularities = [
   { value: 'month', label: 'Mesi' },
   { value: 'year', label: 'Anni' },
 ]
-const volumeRanges = {
-  day: [
-    { value: 7, label: '7g' },
-    { value: 14, label: '14g' },
-    { value: 30, label: '30g' },
-  ],
-  week: [
-    { value: 8, label: '8 settimane' },
-    { value: 12, label: '12 settimane' },
-    { value: 26, label: '6 mesi' },
-    { value: 52, label: '1 anno' },
-    { value: 'all', label: 'Tutto' },
-  ],
-  month: [
-    { value: 6, label: '6 mesi' },
-    { value: 12, label: '1 anno' },
-    { value: 24, label: '2 anni' },
-    { value: 'all', label: 'Tutto' },
-  ],
-  year: [
-    { value: 'all', label: 'Tutto' },
-  ],
-}
-const defaultVolumeRanges = {
-  day: 30,
-  week: 12,
-  month: 12,
-  year: 'all',
-}
-
 const metricDefinitions = {
   longest: {
     eyebrow: 'Distanza',
@@ -89,18 +60,6 @@ function beginningOfWeek(date) {
 function startOfDay(date) {
   const result = new Date(date)
   result.setHours(0, 0, 0, 0)
-  return result
-}
-
-function endOfDay(date) {
-  const result = new Date(date)
-  result.setHours(23, 59, 59, 999)
-  return result
-}
-
-function shiftDays(date, days) {
-  const result = new Date(date)
-  result.setDate(result.getDate() + days)
   return result
 }
 
@@ -198,13 +157,6 @@ function aggregateWeeks(activities, start, end) {
   }))
 }
 
-function earliestActivityDate(activities) {
-  const dates = activities
-    .map((activity) => new Date(activity.startTimeLocal))
-    .filter((date) => !Number.isNaN(date.getTime()))
-  return dates.length ? new Date(Math.min(...dates)) : new Date()
-}
-
 function volumeBucketLabel(date, granularity) {
   if (granularity === 'day') return formatDate(date)
   if (granularity === 'week') return `Settimana ${weekRangeLabel(localDateKey(date))}`
@@ -217,22 +169,13 @@ function volumeBucketLabel(date, granularity) {
   return String(date.getFullYear())
 }
 
-function aggregateVolume(activities, granularity, range) {
+function aggregateVolume(activities, granularity, period) {
   const now = new Date()
-  const earliest = earliestActivityDate(activities)
-  let start
-
-  if (granularity === 'day') {
-    start = shiftDays(startOfDay(now), -(Number(range) - 1))
-  } else if (granularity === 'week') {
-    start = range === 'all' ? beginningOfWeek(earliest) : beginningOfWeek(now)
-    if (range !== 'all') start.setDate(start.getDate() - ((Number(range) - 1) * 7))
-  } else if (granularity === 'month') {
-    start = range === 'all' ? beginningOfMonth(earliest) : beginningOfMonth(now)
-    if (range !== 'all') start.setMonth(start.getMonth() - (Number(range) - 1))
-  } else {
-    start = beginningOfYear(earliest)
-  }
+  const selectedStart = periodStart(period, now)
+  let start = startOfDay(selectedStart)
+  if (granularity === 'week') start = beginningOfWeek(selectedStart)
+  if (granularity === 'month') start = beginningOfMonth(selectedStart)
+  if (granularity === 'year') start = beginningOfYear(selectedStart)
 
   const buckets = []
   const byDate = new Map()
@@ -258,7 +201,11 @@ function aggregateVolume(activities, granularity, range) {
 
   activities.forEach((activity) => {
     const activityDate = new Date(activity.startTimeLocal)
-    if (Number.isNaN(activityDate.getTime()) || activityDate < start || activityDate > now) return
+    if (
+      Number.isNaN(activityDate.getTime())
+      || activityDate < selectedStart
+      || activityDate > now
+    ) return
 
     let bucketDate = startOfDay(activityDate)
     if (granularity === 'week') bucketDate = beginningOfWeek(activityDate)
@@ -310,11 +257,9 @@ function addTrend(weeks) {
   }
 }
 
-function historyForMetric(activities, metric, months) {
+function historyForMetric(activities, metric, period) {
   const end = new Date()
-  const rawStart = new Date(end)
-  rawStart.setMonth(rawStart.getMonth() - months)
-  const start = beginningOfWeek(rawStart)
+  const start = beginningOfWeek(periodStart(period, end))
 
   return aggregateWeeks(activities, start, end).map((week) => {
     let value = null
@@ -386,11 +331,11 @@ function VolumeDot({ cx, cy, payload, selectedDate, onSelect }) {
 }
 
 function MetricModal({ activities, metric, onClose }) {
-  const [months, setMonths] = useState(6)
+  const [period, setPeriod] = useState({ amount: 6, unit: 'month' })
   const definition = metricDefinitions[metric]
   const data = useMemo(
-    () => historyForMetric(activities, metric, months),
-    [activities, metric, months],
+    () => historyForMetric(activities, metric, period),
+    [activities, metric, period],
   )
   const visibleValues = data.map((point) => point.value).filter(Number.isFinite)
   const averageValues = visibleValues
@@ -448,40 +393,13 @@ function MetricModal({ activities, metric, onClose }) {
           </button>
         </header>
 
-        <div className="modal-range-control" role="group" aria-label="Intervallo storico">
-          <button
-            type="button"
-            className={months === 1 ? 'active' : ''}
-            aria-pressed={months === 1}
-            onClick={() => setMonths(1)}
-          >
-            Ultimo mese
-          </button>
-          <button
-            type="button"
-            className={months === 2 ? 'active' : ''}
-            aria-pressed={months === 2}
-            onClick={() => setMonths(2)}
-          >
-            Ultimi 2 mesi
-          </button>
-          <button
-            type="button"
-            className={months === 6 ? 'active' : ''}
-            aria-pressed={months === 6}
-            onClick={() => setMonths(6)}
-          >
-            Ultimi 6 mesi
-          </button>
-          <button
-            type="button"
-            className={months === 12 ? 'active' : ''}
-            aria-pressed={months === 12}
-            onClick={() => setMonths(12)}
-          >
-            Ultimo anno
-          </button>
-        </div>
+        <PeriodPicker
+          value={period}
+          onChange={setPeriod}
+          activities={activities}
+          idPrefix={`metric-${metric}-period`}
+          className="modal-period-picker"
+        />
 
         <div className="metric-modal-chart">
           {!hasMetricData ? (
@@ -559,11 +477,11 @@ function MetricModal({ activities, metric, onClose }) {
 }
 
 function Analytics({ activities }) {
-  const [period, setPeriod] = useState(30)
+  const [period, setPeriod] = useState({ amount: 1, unit: 'month' })
   const [periodOffset, setPeriodOffset] = useState(0)
   const [alignToMonday, setAlignToMonday] = useState(false)
   const [volumeGranularity, setVolumeGranularity] = useState('day')
-  const [volumeRange, setVolumeRange] = useState(defaultVolumeRanges.day)
+  const [volumePeriod, setVolumePeriod] = useState({ amount: 1, unit: 'month' })
   const [selectedVolumeKey, setSelectedVolumeKey] = useState(null)
   const [showWeeklyAverage, setShowWeeklyAverage] = useState(false)
   const [showWeeklyTrend, setShowWeeklyTrend] = useState(false)
@@ -571,32 +489,10 @@ function Analytics({ activities }) {
 
   const dateRange = useMemo(() => {
     const now = new Date()
-    const today = startOfDay(now)
-
-    if (!alignToMonday) {
-      const endDate = shiftDays(today, -(period * periodOffset))
-      const start = shiftDays(endDate, -(period - 1))
-      return {
-        start,
-        end: periodOffset === 0 ? now : endOfDay(endDate),
-      }
-    }
-
-    const exactCurrentStart = shiftDays(today, -(period - 1))
-    const currentStart = firstMondayOnOrAfter(exactCurrentStart)
-    const currentWeekStart = beginningOfWeek(today)
-    const weeksInBlock = Math.round(
-      (currentWeekStart - currentStart) / (7 * 86400000),
-    ) + 1
-
-    if (periodOffset === 0) return { start: currentStart, end: now }
-
-    const start = shiftDays(currentStart, -(periodOffset * weeksInBlock * 7))
-    const nextBlockStart = shiftDays(
-      currentStart,
-      -((periodOffset - 1) * weeksInBlock * 7),
-    )
-    return { start, end: new Date(nextBlockStart.getTime() - 1) }
+    const range = periodRange(period, periodOffset, now)
+    return alignToMonday
+      ? { ...range, start: firstMondayOnOrAfter(range.start) }
+      : range
   }, [alignToMonday, period, periodOffset])
 
   const filtered = useMemo(
@@ -608,8 +504,8 @@ function Analytics({ activities }) {
   )
 
   const volumeAnalysis = useMemo(
-    () => addTrend(aggregateVolume(activities, volumeGranularity, volumeRange)),
-    [activities, volumeGranularity, volumeRange],
+    () => addTrend(aggregateVolume(activities, volumeGranularity, volumePeriod)),
+    [activities, volumeGranularity, volumePeriod],
   )
   const selectedVolume = volumeAnalysis.data.find((point) => point.date === selectedVolumeKey)
     ?? volumeAnalysis.data.at(-1)
@@ -680,7 +576,6 @@ function Analytics({ activities }) {
 
   const selectVolumeGranularity = (value) => {
     setVolumeGranularity(value)
-    setVolumeRange(defaultVolumeRanges[value])
     setSelectedVolumeKey(null)
   }
 
@@ -754,19 +649,13 @@ function Analytics({ activities }) {
           <p>Esplora il volume e l'andamento delle tue corse nel periodo scelto.</p>
         </div>
         <div className="analytics-period-settings">
-          <div className="period-control analytics-top-period" role="group" aria-label="Periodo di analisi">
-            {periods.map((value) => (
-              <button
-                type="button"
-                key={value}
-                className={period === value ? 'active' : ''}
-                aria-pressed={period === value}
-                onClick={() => selectPeriod(value)}
-              >
-                {value}g
-              </button>
-            ))}
-          </div>
+          <PeriodPicker
+            value={period}
+            onChange={selectPeriod}
+            activities={activities}
+            idPrefix="analytics-period"
+            dateRange={dateRange}
+          />
           <label className="monday-alignment-control">
             <input
               type="checkbox"
@@ -786,8 +675,8 @@ function Analytics({ activities }) {
           type="button"
           className="date-navigation-button"
           onClick={showPreviousPeriod}
-          aria-label={`Mostra i ${period} giorni precedenti`}
-          title={`Vai indietro di ${period} giorni`}
+          aria-label={`Mostra il periodo precedente di ${periodLabel(period)}`}
+          title={`Vai indietro di ${periodLabel(period)}`}
         >
           ←
         </button>
@@ -801,14 +690,14 @@ function Analytics({ activities }) {
           className="date-navigation-button"
           onClick={showNextPeriod}
           disabled={periodOffset === 0}
-          aria-label={`Mostra i ${period} giorni successivi`}
-          title={periodOffset === 0 ? 'Sei già nel periodo attuale' : `Vai avanti di ${period} giorni`}
+          aria-label={`Mostra il periodo successivo di ${periodLabel(period)}`}
+          title={periodOffset === 0 ? 'Sei già nel periodo attuale' : `Vai avanti di ${periodLabel(period)}`}
         >
           →
         </button>
       </div>
 
-      <section className="period-metrics-grid" aria-label={`Metriche degli ultimi ${period} giorni`}>
+      <section className="period-metrics-grid" aria-label={`Metriche per ${periodLabel(period)}`}>
         {metricCards.map((card) => {
           const content = (
             <>
@@ -861,22 +750,16 @@ function Analytics({ activities }) {
                 </button>
               ))}
             </div>
-            <div className="period-control" role="group" aria-label="Intervallo del volume">
-              {volumeRanges[volumeGranularity].map((option) => (
-                <button
-                  type="button"
-                  key={option.value}
-                  className={volumeRange === option.value ? 'active' : ''}
-                  aria-pressed={volumeRange === option.value}
-                  onClick={() => {
-                    setVolumeRange(option.value)
-                    setSelectedVolumeKey(null)
-                  }}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
+            <PeriodPicker
+              value={volumePeriod}
+              onChange={(value) => {
+                setVolumePeriod(value)
+                setSelectedVolumeKey(null)
+              }}
+              activities={activities}
+              idPrefix="analytics-volume-period"
+              className="volume-period-picker"
+            />
           </div>
         </div>
 

@@ -12,6 +12,7 @@ import {
   YAxis,
 } from 'recharts'
 import ChartContainer from './ChartContainer.jsx'
+import PeriodPicker from './PeriodPicker.jsx'
 import {
   formatDate,
   formatDistance,
@@ -30,6 +31,11 @@ import {
   median,
   paceMinutes,
 } from '../domain/dashboardAnalysis.js'
+import {
+  normalizePeriod,
+  periodAmountLimit,
+  periodRange,
+} from '../domain/periods.js'
 
 function ComparisonInfoDialog({
   title,
@@ -187,6 +193,7 @@ function ComparisonChart({
   axisFormatter,
   lowerIsBetter = true,
   detail,
+  rangeLabel,
   deltaFormatter,
   latestLabel = 'Ultima corsa',
   referenceLabel = 'Mediana storico',
@@ -223,6 +230,11 @@ function ComparisonChart({
           <p className="eyebrow">{eyebrow}</p>
           <h2>{title}</h2>
           <p>{description}</p>
+          {rangeLabel && (
+            <p className="comparison-range">
+              <strong>Range analizzato:</strong> {rangeLabel}
+            </p>
+          )}
         </div>
         {hasComparison && (
           <span className={`comparison-status ${status.tone}`}>
@@ -409,13 +421,118 @@ function LatestRunSummary({ activity }) {
   )
 }
 
+function ActivityDetailDialog({ activity, onClose }) {
+  const pace = paceMinutes(activity)
+
+  useEffect(() => {
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', closeOnEscape)
+    return () => document.removeEventListener('keydown', closeOnEscape)
+  }, [onClose])
+
+  const details = [
+    ['Distanza', formatDistance(distanceKm(activity))],
+    ['Durata', formatDuration(activity.duration)],
+    ['Passo medio', pace ? `${formatPaceDecimal(pace)} /km` : '—'],
+    ['FC media', formatHeartRate(activity.averageHR)],
+    ['FC massima', formatHeartRate(activity.maxHR)],
+    ['Dislivello', Number.isFinite(Number(activity.elevationGain))
+      ? `${Math.round(Number(activity.elevationGain)).toLocaleString('it-IT')} m`
+      : '—'],
+    ['Calorie', Number.isFinite(Number(activity.calories))
+      ? `${Math.round(Number(activity.calories)).toLocaleString('it-IT')} kcal`
+      : '—'],
+  ]
+
+  return (
+    <div className="info-modal-backdrop" onMouseDown={onClose}>
+      <section
+        className="info-modal activity-detail-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="activity-detail-title"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <header className="info-modal-header">
+          <div>
+            <p className="eyebrow">Dettagli attività</p>
+            <h2 id="activity-detail-title">{activity.activityName || 'Corsa'}</h2>
+            <p>{formatDate(activity.startTimeLocal, 'long')}</p>
+          </div>
+          <button type="button" className="modal-close" onClick={onClose} aria-label="Chiudi">
+            ×
+          </button>
+        </header>
+        <div className="activity-detail-grid">
+          {details.map(([label, value]) => (
+            <div key={label}>
+              <span>{label}</span>
+              <strong>{value}</strong>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function ActivityScatterPoint({ cx, cy, payload, onSelect, latest = false }) {
+  const openDetails = () => onSelect(payload.activity)
+  return (
+    <g
+      className={`activity-scatter-point${latest ? ' latest' : ''}`}
+      role="button"
+      tabIndex={0}
+      aria-label={`Apri i dettagli di ${payload.name} del ${formatDate(payload.date)}`}
+      onClick={openDetails}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          openDetails()
+        }
+      }}
+    >
+      <circle cx={cx} cy={cy} r={12} fill="transparent" />
+      {latest ? (
+        <rect
+          x={cx - 5}
+          y={cy - 5}
+          width={10}
+          height={10}
+          rx={1}
+          fill="#ef5b24"
+          transform={`rotate(45 ${cx} ${cy})`}
+        />
+      ) : (
+        <circle cx={cx} cy={cy} r={5} fill="#8fa194" fillOpacity={0.82} />
+      )}
+    </g>
+  )
+}
+
 function EffortScatter({ historical, latest }) {
-  const historicalData = historical
+  const referenceDate = new Date(latest.startTimeLocal)
+  const pickerActivities = [...historical, latest]
+  const [period, setPeriod] = useState(() => ({
+    amount: periodAmountLimit('year', pickerActivities, referenceDate),
+    unit: 'year',
+  }))
+  const [selectedActivity, setSelectedActivity] = useState(null)
+  const normalizedPeriod = normalizePeriod(period, pickerActivities, referenceDate)
+  const selectedRange = periodRange(normalizedPeriod, 0, referenceDate)
+  const selectedHistory = historical.filter((activity) => {
+    const date = new Date(activity.startTimeLocal)
+    return date >= selectedRange.start && date <= selectedRange.end
+  })
+  const historicalData = selectedHistory
     .map((activity) => ({
       heartRate: heartRate(activity),
       pace: paceMinutes(activity),
       date: activity.startTimeLocal,
       name: activity.activityName || 'Corsa',
+      activity,
     }))
     .filter((point) => Number.isFinite(point.heartRate) && Number.isFinite(point.pace))
   const latestPoint = {
@@ -423,6 +540,7 @@ function EffortScatter({ historical, latest }) {
     pace: paceMinutes(latest),
     date: latest.startTimeLocal,
     name: latest.activityName || 'Ultima corsa',
+    activity: latest,
   }
   const hasLatestPoint = Number.isFinite(latestPoint.heartRate) && Number.isFinite(latestPoint.pace)
   const medianHeartRate = median(historicalData.map((point) => point.heartRate))
@@ -430,13 +548,21 @@ function EffortScatter({ historical, latest }) {
 
   return (
     <article className="panel effort-map-panel">
-      <div className="panel-heading">
+      <div className="panel-heading effort-map-heading">
         <div>
           <p className="eyebrow">Quadro generale</p>
           <h2>Passo e frequenza cardiaca</h2>
           <p>Più un punto è in alto e a sinistra, più il passo è veloce con meno battiti.</p>
         </div>
-        <span>Storico recente</span>
+        <PeriodPicker
+          value={period}
+          onChange={setPeriod}
+          activities={pickerActivities}
+          idPrefix="effort-map-period"
+          className="effort-map-period-picker"
+          dateRange={selectedRange}
+          referenceDate={referenceDate}
+        />
       </div>
       {hasLatestPoint && historicalData.length ? (
         <>
@@ -485,8 +611,22 @@ function EffortScatter({ historical, latest }) {
                 {medianPace != null && (
                   <ReferenceLine y={medianPace} stroke="#aeb6ae" strokeDasharray="5 5" />
                 )}
-                <Scatter data={historicalData} fill="#8fa194" fillOpacity={0.72} />
-                <Scatter data={[latestPoint]} fill="#ef5b24" shape="diamond" />
+                <Scatter
+                  data={historicalData}
+                  shape={(props) => (
+                    <ActivityScatterPoint {...props} onSelect={setSelectedActivity} />
+                  )}
+                />
+                <Scatter
+                  data={[latestPoint]}
+                  shape={(props) => (
+                    <ActivityScatterPoint
+                      {...props}
+                      latest
+                      onSelect={setSelectedActivity}
+                    />
+                  )}
+                />
               </ScatterChart>
             </ChartContainer>
           </div>
@@ -497,29 +637,18 @@ function EffortScatter({ historical, latest }) {
           <p>Servono passo e frequenza cardiaca sia nell’ultima corsa sia nello storico.</p>
         </div>
       )}
+      {selectedActivity && (
+        <ActivityDetailDialog
+          activity={selectedActivity}
+          onClose={() => setSelectedActivity(null)}
+        />
+      )}
     </article>
   )
 }
 
 function HeartRateZoneAnalysis({ latest, historical }) {
   const latestSummary = heartRateZoneSummary(latest)
-  const chartData = [...historical, latest]
-    .map((activity) => {
-      const summary = heartRateZoneSummary(activity)
-      if (!summary) return null
-      return {
-        date: formatDate(activity.startTimeLocal, 'short'),
-        timestamp: new Date(activity.startTimeLocal).getTime(),
-        latest: activity.activityId === latest.activityId,
-        ...Object.fromEntries(
-          summary.zones.map((zone) => [`z${zone.zone}`, zone.seconds / 60]),
-        ),
-      }
-    })
-    .filter(Boolean)
-    .sort((first, second) => first.timestamp - second.timestamp)
-    .slice(-8)
-
   const historicalSummaries = historical.map(heartRateZoneSummary).filter(Boolean)
   const easyReference = median(historicalSummaries.map((summary) => summary.easyShare))
   const easyDifference = latestSummary && easyReference != null
@@ -603,44 +732,6 @@ function HeartRateZoneAnalysis({ latest, historical }) {
             ))}
           </div>
 
-          {chartData.length > 1 && (
-            <div className="zone-history">
-              <h3>Distribuzione nelle ultime attività</h3>
-              <p>Minuti in ciascuna zona; l’ultima corsa è la colonna più a destra.</p>
-              <div className="zone-history-chart">
-                <ChartContainer>
-                  <BarChart data={chartData} margin={{ top: 12, right: 18, left: 0, bottom: 4 }}>
-                    <CartesianGrid vertical={false} stroke="#e1e4df" />
-                    <XAxis dataKey="date" tickLine={false} axisLine={false} />
-                    <YAxis
-                      tickFormatter={(value) => `${Math.round(value)}m`}
-                      tickLine={false}
-                      axisLine={false}
-                      width={40}
-                    />
-                    <Tooltip
-                      formatter={(value, name) => [
-                        `${Number(value).toLocaleString('it-IT', {
-                          maximumFractionDigits: 1,
-                        })} min`,
-                        String(name).toUpperCase(),
-                      ]}
-                    />
-                    {HEART_RATE_ZONE_COLORS.map((color, index) => (
-                      <Bar
-                        key={`z${index + 1}`}
-                        dataKey={`z${index + 1}`}
-                        stackId="zones"
-                        fill={color}
-                        name={`Z${index + 1}`}
-                        radius={index === 4 ? [5, 5, 0, 0] : 0}
-                      />
-                    ))}
-                  </BarChart>
-                </ChartContainer>
-              </div>
-            </div>
-          )}
         </>
       ) : (
         <div className="comparison-empty zone-empty">
@@ -663,7 +754,7 @@ function Dashboard({ activities, syncState, onSync }) {
       <div className="page-stack">
         <section className="page-heading compact-heading">
           <div>
-            <p className="eyebrow">Dashboard corsa</p>
+            <p className="eyebrow">Corsa</p>
             <h1>Nessuna corsa disponibile.</h1>
             <p>Sincronizza Garmin dalla dashboard generale per importare le attività.</p>
           </div>
@@ -732,10 +823,10 @@ function Dashboard({ activities, syncState, onSync }) {
     <div className="page-stack">
       <section className="page-heading latest-analysis-heading">
         <div>
-          <p className="eyebrow">Dashboard corsa</p>
-          <h1>Dentro la tua ultima corsa.</h1>
+          <p className="eyebrow">Corsa</p>
+          <h1>Dentro l'ultima corsa.</h1>
           <p>
-            Confronti con attività simili per capire se stai correndo più velocemente
+            Confronti con attività simili per capire se sto correndo più velocemente
             o con minore sforzo cardiaco.
           </p>
         </div>
@@ -803,7 +894,10 @@ function Dashboard({ activities, syncState, onSync }) {
               ? 'Stessa FC della mediana'
               : `${Math.abs(Math.round(difference))} bpm ${difference < 0 ? 'in meno' : 'in più'}`
           )}
-          detail="Un valore più basso indica minore sforzo."
+          detail=""
+          rangeLabel={analysis.latestPace
+            ? `${formatPaceDecimal(analysis.latestPace * 0.95)} – ${formatPaceDecimal(analysis.latestPace * 1.05)} /km`
+            : 'non disponibile'}
         />
         <ComparisonChart
           eyebrow="Velocità a pari sforzo"
@@ -823,7 +917,10 @@ function Dashboard({ activities, syncState, onSync }) {
               ? 'Stesso passo della mediana'
               : `${Math.abs(Math.round(difference))} s/km ${difference < 0 ? 'più veloce' : 'più lento'}`
           )}
-          detail="Un passo più basso è più veloce."
+          detail=""
+          rangeLabel={analysis.latestHr
+            ? `${Math.max(0, Math.round(analysis.latestHr - 5))} – ${Math.round(analysis.latestHr + 5)} bpm`
+            : 'non disponibile'}
         />
         <ComparisonChart
           eyebrow="Prestazione sulla distanza"
@@ -844,6 +941,9 @@ function Dashboard({ activities, syncState, onSync }) {
               : `${Math.abs(Math.round(difference))} s/km ${difference < 0 ? 'più veloce' : 'più lento'}`
           )}
           detail={`Distanza di riferimento: ${formatDistance(analysis.latestDistance)}.`}
+          rangeLabel={analysis.latestDistance
+            ? `${formatDistance(analysis.latestDistance * 0.9)} – ${formatDistance(analysis.latestDistance * 1.1)}`
+            : 'non disponibile'}
         />
         <ComparisonChart
           eyebrow="Efficienza aerobica"
@@ -870,16 +970,17 @@ function Dashboard({ activities, syncState, onSync }) {
                 maximumFractionDigits: 2,
               })} punti ${difference > 0 ? 'in più' : 'in meno'}`
           )}
-          detail="Un indice più alto indica maggiore efficienza."
+          detail=""
+          rangeLabel="tutte le corse con passo e frequenza cardiaca validi"
         />
       </section>
 
       <section className="analysis-section-heading">
         <p className="eyebrow">Prestazione attesa</p>
-        <h2>Quanto hai fatto meglio o peggio del previsto</h2>
+        <h2>Quanto ho fatto meglio o peggio del previsto</h2>
         <p>
           I valori attesi sono stimati dallo storico considerando contemporaneamente
-          distanza, passo e frequenza cardiaca, senza utilizzare il dislivello.
+          distanza, passo e frequenza cardiaca.
         </p>
       </section>
 
@@ -1123,7 +1224,7 @@ function Dashboard({ activities, syncState, onSync }) {
 
       <HeartRateZoneAnalysis latest={analysis.latest} historical={analysis.historical} />
 
-      <EffortScatter historical={analysis.historical} latest={analysis.latest} />
+      <EffortScatter historical={analysis.allPrevious} latest={analysis.latest} />
     </div>
   )
 }

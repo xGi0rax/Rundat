@@ -354,6 +354,7 @@ export function analyzeDashboard(activities) {
 
   return {
     latest,
+    allPrevious,
     historical,
     latestPace,
     latestHr,

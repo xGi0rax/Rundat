@@ -340,6 +340,14 @@
   background: var(--accent-soft);
 }
 
+.latest-cycle-summary {
+  grid-template-columns: minmax(210px, 1.45fr) repeat(5, minmax(112px, 1fr));
+}
+
+.latest-cycle-summary .latest-run-identity {
+  background: #eaf1fb;
+}
+
 .latest-run-identity small {
   margin-top: 6px;
   color: var(--muted);
@@ -402,6 +410,16 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
+}
+
+.comparison-heading .comparison-range {
+  margin-top: 9px;
+  color: #59635b;
+  font-size: 0.72rem;
+}
+
+.comparison-range strong {
+  color: var(--ink);
 }
 
 .comparison-heading h2 {
@@ -797,10 +815,77 @@
   overflow: hidden;
 }
 
-.general-period-control {
+.period-picker {
+  display: flex;
   width: fit-content;
   max-width: 100%;
-  overflow-x: auto;
+  gap: 8px;
+  padding: 7px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--surface);
+  box-shadow: 0 5px 18px rgba(38, 54, 41, 0.06);
+}
+
+.period-picker label {
+  display: grid;
+  gap: 3px;
+}
+
+.period-picker label:first-child {
+  width: 86px;
+}
+
+.period-picker label:last-child {
+  width: 142px;
+}
+
+.period-picker span,
+.period-picker-dates span {
+  padding-inline: 5px;
+  color: var(--muted);
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.period-picker-dates {
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  min-width: 220px;
+  padding: 2px 10px;
+  border-left: 1px solid var(--line);
+}
+
+.period-picker-dates strong {
+  color: var(--ink);
+  font-size: 0.82rem;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.period-picker select {
+  width: 100%;
+  min-height: 38px;
+  padding: 7px 32px 7px 10px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--ink);
+  background: var(--surface-soft);
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.period-picker select:focus-visible {
+  outline: 3px solid rgba(49, 94, 59, 0.25);
+  outline-offset: 1px;
+}
+
+.modal-period-picker {
+  margin: 4px 28px 0;
 }
 
 .general-summary-grid {
@@ -879,12 +964,64 @@
   border-top: 4px solid #345f9d;
 }
 
+.running-recap-card {
+  border-top: 4px solid #ef5b24;
+}
+
 .cycling-heading h1 {
   color: #274d7c;
 }
 
 .cycling-empty {
   min-height: 220px;
+}
+
+.cycling-verdict {
+  border-left-color: #345f9d;
+  background: #eef3fa;
+}
+
+.cycling-verdict span {
+  color: #274d7c;
+}
+
+.cycling-history-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.cycling-history-heading > div:first-child {
+  min-width: 0;
+}
+
+.cycling-history-heading .period-picker {
+  flex: 0 0 auto;
+}
+
+.cycling-chart-panel {
+  min-width: 0;
+}
+
+.cycling-chart-panel .panel-heading {
+  align-items: flex-start;
+}
+
+.cycling-analysis-chart {
+  width: 100%;
+  min-width: 0;
+  height: 330px;
+  padding: 0 16px 18px;
+  font-size: 0.7rem;
+}
+
+.cycling-effort-panel {
+  min-width: 0;
+}
+
+.cycling-scatter-chart {
+  height: 390px;
 }
 
 .hr-zone-heading > div {
@@ -898,6 +1035,10 @@
   border: 1px solid var(--line);
   border-radius: 14px;
   background: var(--surface-soft);
+}
+
+.combined-zone-insights {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .zone-insights > div {
@@ -1060,6 +1201,70 @@
   height: 390px;
   padding: 8px 20px 24px;
   font-size: 0.7rem;
+}
+
+.effort-map-heading {
+  align-items: flex-start;
+}
+
+.effort-map-period-picker {
+  flex: 0 0 auto;
+}
+
+.activity-scatter-point {
+  cursor: pointer;
+}
+
+.activity-scatter-point:focus {
+  outline: none;
+}
+
+.activity-scatter-point:focus circle:last-child,
+.activity-scatter-point:hover circle:last-child,
+.activity-scatter-point:focus rect,
+.activity-scatter-point:hover rect {
+  filter: brightness(0.86);
+  stroke: #ffffff;
+  stroke-width: 2px;
+}
+
+.activity-detail-modal {
+  width: min(720px, 100%);
+}
+
+.activity-detail-modal .info-modal-header p:last-child {
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.activity-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  padding: 1px;
+  background: var(--line);
+}
+
+.activity-detail-grid > div {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  padding: 20px 22px;
+  background: var(--surface);
+}
+
+.activity-detail-grid span {
+  color: var(--muted);
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.activity-detail-grid strong {
+  color: var(--ink);
+  font-size: 1.05rem;
 }
 
 .panel {
@@ -1958,6 +2163,26 @@ td {
   text-overflow: ellipsis;
 }
 
+.activity-type-badge {
+  display: inline-flex;
+  min-width: 54px;
+  justify-content: center;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.activity-type-badge.running {
+  color: #a83b15;
+  background: #fff0e9;
+}
+
+.activity-type-badge.cycling {
+  color: #274d7c;
+  background: #eaf1fb;
+}
+
 tbody tr:last-child td {
   border-bottom: 0;
 }
@@ -2124,6 +2349,10 @@ tbody tr:hover {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .latest-cycle-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .latest-run-summary > div {
     border-top: 1px solid var(--line);
   }
@@ -2206,6 +2435,24 @@ tbody tr:hover {
 
   .latest-run-summary {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .cycling-history-heading {
+    display: grid;
+    align-items: stretch;
+  }
+
+  .cycling-history-heading .period-picker {
+    width: 100%;
+  }
+
+  .cycling-analysis-chart {
+    height: 290px;
+    padding-inline: 6px;
+  }
+
+  .cycling-scatter-chart {
+    height: 340px;
   }
 
   .latest-run-summary > div {
@@ -2668,6 +2915,18 @@ tbody tr:hover {
 }
 
 @media (max-width: 900px) {
+  .combined-zone-insights {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .combined-zone-insights > div:nth-child(2) {
+    border-right: 0;
+  }
+
+  .combined-zone-insights > div:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--line);
+  }
+
   .general-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -2692,6 +2951,44 @@ tbody tr:hover {
 }
 
 @media (max-width: 640px) {
+  .activity-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .combined-zone-insights {
+    grid-template-columns: 1fr;
+  }
+
+  .period-picker {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .period-picker label:first-child {
+    width: 34%;
+  }
+
+  .period-picker label:last-child {
+    width: 66%;
+  }
+
+  .period-picker-dates {
+    width: 100%;
+    min-width: 0;
+    padding: 9px 5px 3px;
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+
+  .period-picker-dates strong {
+    white-space: normal;
+  }
+
+  .modal-period-picker {
+    width: calc(100% - 36px);
+    margin-inline: 18px;
+  }
+
   .general-summary-grid,
   .sport-recap-grid {
     grid-template-columns: 1fr;

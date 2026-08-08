@@ -8,18 +8,10 @@ import {
   YAxis,
 } from 'recharts'
 import ChartContainer from './ChartContainer.jsx'
+import PeriodPicker from './PeriodPicker.jsx'
 import { analyzeCombinedActivities } from '../domain/activityAnalysis.js'
 import { HEART_RATE_ZONE_COLORS } from '../domain/dashboardAnalysis.js'
 import { formatDate, formatDistance, formatDuration } from '../utils/formatters.js'
-
-const periods = [
-  { value: 7, label: '1 settimana' },
-  { value: 30, label: '1 mese' },
-  { value: 90, label: '3 mesi' },
-  { value: 365, label: '1 anno' },
-  { value: 730, label: '2 anni' },
-  { value: 'all', label: 'Tutto' },
-]
 
 function historyLabel(value, granularity) {
   const date = new Date(`${value}T00:00:00`)
@@ -32,8 +24,15 @@ function historyLabel(value, granularity) {
   return formatDate(date, 'short')
 }
 
+function historyTooltipLabel(value, payload, granularity) {
+  const point = payload?.[0]?.payload
+  if (!point) return historyLabel(value, granularity)
+  if (point.startDate === point.endDate) return formatDate(point.startDate)
+  return `${formatDate(point.startDate)} – ${formatDate(point.endDate)}`
+}
+
 function GeneralDashboard({ activities, syncState, onSync }) {
-  const [period, setPeriod] = useState(7)
+  const [period, setPeriod] = useState({ amount: 1, unit: 'week' })
   const analysis = useMemo(
     () => analyzeCombinedActivities(activities, period),
     [activities, period],
@@ -43,6 +42,7 @@ function GeneralDashboard({ activities, syncState, onSync }) {
     analysis.zones[0],
   )
   const easySeconds = analysis.zones[0].seconds + analysis.zones[1].seconds
+  const mediumSeconds = analysis.zones[2].seconds
   const hardSeconds = analysis.zones[3].seconds + analysis.zones[4].seconds
 
   return (
@@ -50,10 +50,9 @@ function GeneralDashboard({ activities, syncState, onSync }) {
       <section className="page-heading latest-analysis-heading">
         <div>
           <p className="eyebrow">Dashboard generale</p>
-          <h1>Il carico cardio di corsa e bici.</h1>
+          <h1>Tutte le attività.</h1>
           <p>
-            Un unico riepilogo del tempo trascorso nelle zone cardiache in tutti gli sport
-            sincronizzati.
+            Unico riepilogo del tempo trascorso nelle zone cardiache in tutti gli sport sincronizzati.
           </p>
         </div>
         <div className="dashboard-actions">
@@ -82,19 +81,13 @@ function GeneralDashboard({ activities, syncState, onSync }) {
         </div>
       </section>
 
-      <div className="period-control general-period-control" role="group" aria-label="Periodo riepilogo generale">
-        {periods.map((option) => (
-          <button
-            type="button"
-            key={option.value}
-            className={period === option.value ? 'active' : ''}
-            aria-pressed={period === option.value}
-            onClick={() => setPeriod(option.value)}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
+
+      <PeriodPicker
+        value={period}
+        onChange={setPeriod}
+        activities={activities}
+        idPrefix="general-dashboard-period"
+      />
 
       <section className="general-summary-grid" aria-label="Riepilogo del periodo">
         <article>
@@ -119,6 +112,21 @@ function GeneralDashboard({ activities, syncState, onSync }) {
         </article>
       </section>
 
+      <section className="sport-recap-grid" aria-label="Riepilogo per sport">
+        <article className="panel running-recap-card">
+          <p className="eyebrow">Corsa</p>
+          <h2>{analysis.sport.running.count} attività</h2>
+          <strong>{formatDuration(analysis.sport.running.duration)}</strong>
+          <span>{formatDistance(analysis.sport.running.distanceKm)}</span>
+        </article>
+        <article className="panel cycling-recap-card">
+          <p className="eyebrow">Bici</p>
+          <h2>{analysis.sport.cycling.count} attività</h2>
+          <strong>{formatDuration(analysis.sport.cycling.duration)}</strong>
+          <span>{formatDistance(analysis.sport.cycling.distanceKm)}</span>
+        </article>
+      </section>
+
       <section className="panel hr-zone-panel" aria-labelledby="combined-zone-title">
         <div className="panel-heading hr-zone-heading">
           <div>
@@ -134,18 +142,23 @@ function GeneralDashboard({ activities, syncState, onSync }) {
 
         {analysis.trackedSeconds > 0 ? (
           <>
-            <div className="zone-insights">
+            <div className="zone-insights combined-zone-insights">
               <div>
                 <span>Tempo cardio totale</span>
                 <strong>{formatDuration(analysis.trackedSeconds)}</strong>
               </div>
               <div>
-                <span>Intensità facile · Z1–Z2</span>
+                <span>Facile · Z1-Z2</span>
                 <strong>{formatDuration(easySeconds)}</strong>
                 <small>{((easySeconds / analysis.trackedSeconds) * 100).toFixed(0)}% del tempo rilevato</small>
               </div>
               <div>
-                <span>Alta intensità · Z4–Z5</span>
+                <span>Media · Z3</span>
+                <strong>{formatDuration(mediumSeconds)}</strong>
+                <small>{((mediumSeconds / analysis.trackedSeconds) * 100).toFixed(0)}% del tempo rilevato</small>
+              </div>
+              <div>
+                <span>Alta · Z4-Z5</span>
                 <strong>{formatDuration(hardSeconds)}</strong>
                 <small>{((hardSeconds / analysis.trackedSeconds) * 100).toFixed(0)}% del tempo rilevato</small>
               </div>
@@ -200,7 +213,9 @@ function GeneralDashboard({ activities, syncState, onSync }) {
                         width={44}
                       />
                       <Tooltip
-                        labelFormatter={(value) => historyLabel(value, analysis.granularity)}
+                        labelFormatter={(value, payload) => (
+                          historyTooltipLabel(value, payload, analysis.granularity)
+                        )}
                         formatter={(value, name) => [
                           `${Number(value).toLocaleString('it-IT', { maximumFractionDigits: 1 })} min`,
                           name,
@@ -230,20 +245,6 @@ function GeneralDashboard({ activities, syncState, onSync }) {
         )}
       </section>
 
-      <section className="sport-recap-grid" aria-label="Riepilogo per sport">
-        <article className="panel">
-          <p className="eyebrow">Corsa</p>
-          <h2>{analysis.sport.running.count} attività</h2>
-          <strong>{formatDuration(analysis.sport.running.duration)}</strong>
-          <span>{formatDistance(analysis.sport.running.distanceKm)}</span>
-        </article>
-        <article className="panel cycling-recap-card">
-          <p className="eyebrow">Bici</p>
-          <h2>{analysis.sport.cycling.count} attività</h2>
-          <strong>{formatDuration(analysis.sport.cycling.duration)}</strong>
-          <span>{formatDistance(analysis.sport.cycling.distanceKm)}</span>
-        </article>
-      </section>
     </div>
   )
 }

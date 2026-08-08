@@ -9,16 +9,10 @@ import {
   YAxis,
 } from 'recharts'
 import ChartContainer from './ChartContainer.jsx'
+import PeriodPicker from './PeriodPicker.jsx'
 import { formatDate, formatDistance, formatDuration, formatPaceDecimal } from '../utils/formatters.js'
+import { periodStart } from '../domain/periods.js'
 
-const trendPeriods = [
-  { value: 1, label: '1 mese' },
-  { value: 2, label: '2 mesi' },
-  { value: 6, label: '6 mesi' },
-  { value: 12, label: '1 anno' },
-  { value: 24, label: '2 anni' },
-  { value: 'all', label: 'Tutto' },
-]
 const trendGranularities = [
   { value: 'week', label: 'Settimana' },
   { value: 'month', label: 'Mese' },
@@ -140,21 +134,6 @@ function activityDistanceKm(activity) {
   if (Number.isFinite(km)) return km
   const metres = Number(activity.distance)
   return Number.isFinite(metres) ? metres / 1000 : 0
-}
-
-function rangeStart(activities, period) {
-  if (period === 'all') {
-    const dates = activities
-      .map((activity) => new Date(activity.startTimeLocal))
-      .filter((date) => !Number.isNaN(date.getTime()))
-    const earliest = dates.length ? new Date(Math.min(...dates)) : new Date()
-    earliest.setHours(0, 0, 0, 0)
-    return earliest
-  }
-  const start = new Date()
-  start.setMonth(start.getMonth() - period)
-  start.setHours(0, 0, 0, 0)
-  return start
 }
 
 function aggregateTrends(activities, start, end, granularity) {
@@ -462,12 +441,10 @@ function TrendChart({ metric: baseMetric, data, granularity }) {
   )
 }
 
-function recordDataForRange(recordHistory, recordKey, start, period) {
+function recordDataForRange(recordHistory, recordKey, start) {
   const records = recordHistory
     .filter((record) => record.recordKey === recordKey)
     .sort((a, b) => new Date(a.date) - new Date(b.date))
-  if (period === 'all') return records
-
   const inside = records.filter((record) => new Date(`${record.date}T00:00:00`) >= start)
   const preceding = records.filter((record) => new Date(`${record.date}T00:00:00`) < start).at(-1)
   return preceding
@@ -475,7 +452,7 @@ function recordDataForRange(recordHistory, recordKey, start, period) {
     : inside
 }
 
-function RecordTrend({ history, start, period }) {
+function RecordTrend({ history, start }) {
   const availableRecords = Object.keys(recordLabels).filter((recordKey) => (
     history.some((record) => record.recordKey === recordKey)
   ))
@@ -486,10 +463,10 @@ function RecordTrend({ history, start, period }) {
   const data = useMemo(
     () => (
       activeRecord
-        ? recordDataForRange(history, activeRecord, start, period)
+        ? recordDataForRange(history, activeRecord, start)
         : []
     ),
-    [activeRecord, history, period, start],
+    [activeRecord, history, start],
   )
   const analysis = useMemo(() => analyzeLinearTrend(data, 'duration'), [data])
 
@@ -594,19 +571,19 @@ function RecordTrend({ history, start, period }) {
 }
 
 function Trends({ activities, recordHistory }) {
-  const [period, setPeriod] = useState(12)
+  const [period, setPeriod] = useState({ amount: 12, unit: 'month' })
   const [granularity, setGranularity] = useState('week')
   const analysis = useMemo(() => {
     const end = new Date()
-    const start = rangeStart(activities, period)
+    const start = periodStart(period)
     return {
       start,
       data: aggregateTrends(activities, start, end, granularity),
     }
   }, [activities, granularity, period])
   const recordStart = useMemo(
-    () => rangeStart(activities, period),
-    [activities, period],
+    () => periodStart(period),
+    [period],
   )
 
   const granularityName = {
@@ -624,19 +601,13 @@ function Trends({ activities, recordHistory }) {
           <p>Volume, ritmo e intensità aggregati per {granularityName}, insieme ai record personali.</p>
         </div>
         <div className="trend-controls">
-          <div className="period-control trend-period-control" role="group" aria-label="Periodo dei trend">
-            {trendPeriods.map((option) => (
-              <button
-                type="button"
-                key={option.value}
-                className={period === option.value ? 'active' : ''}
-                aria-pressed={period === option.value}
-                onClick={() => setPeriod(option.value)}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+          <PeriodPicker
+            value={period}
+            onChange={setPeriod}
+            activities={activities}
+            idPrefix="trend-period"
+            className="trend-period-picker"
+          />
           <div
             className="period-control trend-period-control"
             role="group"
@@ -671,7 +642,6 @@ function Trends({ activities, recordHistory }) {
       <RecordTrend
         history={recordHistory}
         start={recordStart}
-        period={period}
       />
     </div>
   )
