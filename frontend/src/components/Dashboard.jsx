@@ -12,7 +12,10 @@ import {
   YAxis,
 } from 'recharts'
 import ChartContainer from './ChartContainer.jsx'
+import HeartRateZonePanel from './HeartRateZonePanel.jsx'
+import LatestActivityRoute from './LatestRunRoute.jsx'
 import PeriodPicker from './PeriodPicker.jsx'
+import RunningVisualAnalysis from './RunningVisualAnalysis.jsx'
 import {
   formatDate,
   formatDistance,
@@ -26,8 +29,6 @@ import {
   confidenceFor,
   distanceKm,
   heartRate,
-  HEART_RATE_ZONE_COLORS,
-  heartRateZoneSummary,
   median,
   paceMinutes,
 } from '../domain/dashboardAnalysis.js'
@@ -396,7 +397,10 @@ function InsightCard({
 function LatestRunSummary({ activity }) {
   const pace = paceMinutes(activity)
   return (
-    <section className="latest-run-summary" aria-label="Dati dell’ultima corsa">
+    <section
+      className="latest-run-summary latest-running-summary"
+      aria-label="Dati dell’ultima corsa"
+    >
       <div className="latest-run-identity">
         <span>Ultima attività analizzata</span>
         <strong>{formatDate(activity.startTimeLocal, 'long')}</strong>
@@ -502,7 +506,7 @@ function ActivityScatterPoint({ cx, cy, payload, onSelect, latest = false }) {
           width={10}
           height={10}
           rx={1}
-          fill="#ef5b24"
+          fill="#345f9d"
           transform={`rotate(45 ${cx} ${cy})`}
         />
       ) : (
@@ -647,105 +651,6 @@ function EffortScatter({ historical, latest }) {
   )
 }
 
-function HeartRateZoneAnalysis({ latest, historical }) {
-  const latestSummary = heartRateZoneSummary(latest)
-  const historicalSummaries = historical.map(heartRateZoneSummary).filter(Boolean)
-  const easyReference = median(historicalSummaries.map((summary) => summary.easyShare))
-  const easyDifference = latestSummary && easyReference != null
-    ? latestSummary.easyShare - easyReference
-    : null
-
-  return (
-    <section className="panel hr-zone-panel" aria-labelledby="hr-zone-title">
-      <div className="panel-heading hr-zone-heading">
-        <div>
-          <p className="eyebrow">Distribuzione dello sforzo</p>
-          <h2 id="hr-zone-title">Zone cardiache</h2>
-          <p>
-            Tempo trascorso in ciascuna zona nell’ultima corsa e confronto con le attività
-            recenti dotate di dati Garmin.
-          </p>
-        </div>
-        {latestSummary && (
-          <span>
-            Prevalenza Z{latestSummary.dominant.zone} ·{' '}
-            {latestSummary.dominant.percentage.toLocaleString('it-IT', {
-              maximumFractionDigits: 0,
-            })}%
-          </span>
-        )}
-      </div>
-
-      {latestSummary ? (
-        <>
-          <div className="zone-insights">
-            <div>
-              <span>Tempo rilevato</span>
-              <strong>{formatDuration(latestSummary.totalSeconds)}</strong>
-            </div>
-            <div>
-              <span>Intensità facile · Z1–Z2</span>
-              <strong>
-                {latestSummary.easyShare.toLocaleString('it-IT', { maximumFractionDigits: 1 })}%
-              </strong>
-              <small>
-                {easyDifference == null
-                  ? 'Storico non ancora disponibile'
-                  : `${Math.abs(easyDifference).toLocaleString('it-IT', {
-                    maximumFractionDigits: 1,
-                  })} punti ${easyDifference >= 0 ? 'sopra' : 'sotto'} la mediana`}
-              </small>
-            </div>
-            <div>
-              <span>Alta intensità · Z4–Z5</span>
-              <strong>
-                {latestSummary.hardShare.toLocaleString('it-IT', { maximumFractionDigits: 1 })}%
-              </strong>
-              <small>Quota svolta alle intensità più elevate</small>
-            </div>
-          </div>
-
-          <div
-            className="zone-distribution"
-            role="img"
-            aria-label="Distribuzione percentuale delle zone cardiache nell’ultima corsa"
-          >
-            {latestSummary.zones.map((zone, index) => (
-              <span
-                key={zone.zone}
-                style={{
-                  width: `${zone.percentage}%`,
-                  backgroundColor: HEART_RATE_ZONE_COLORS[index],
-                }}
-                title={`Z${zone.zone}: ${formatDuration(zone.seconds)} (${zone.percentage.toFixed(1)}%)`}
-              />
-            ))}
-          </div>
-          <div className="zone-legend">
-            {latestSummary.zones.map((zone, index) => (
-              <div key={zone.zone}>
-                <i style={{ backgroundColor: HEART_RATE_ZONE_COLORS[index] }} />
-                <span>Z{zone.zone}</span>
-                <strong>{formatDuration(zone.seconds)}</strong>
-                <small>{zone.percentage.toFixed(0)}%</small>
-              </div>
-            ))}
-          </div>
-
-        </>
-      ) : (
-        <div className="comparison-empty zone-empty">
-          <strong>Zone non ancora disponibili per questa corsa</strong>
-          <p>
-            Premi “Sincronizza Garmin”: le attività più recenti prive di zone vengono
-            completate progressivamente.
-          </p>
-        </div>
-      )}
-    </section>
-  )
-}
-
 function Dashboard({ activities, syncState, onSync }) {
   const analysis = useMemo(() => analyzeDashboard(activities), [activities])
 
@@ -821,7 +726,7 @@ function Dashboard({ activities, syncState, onSync }) {
 
   return (
     <div className="page-stack">
-      <section className="page-heading latest-analysis-heading">
+      <section className="page-heading latest-analysis-heading running-heading">
         <div>
           <p className="eyebrow">Corsa</p>
           <h1>Dentro l'ultima corsa.</h1>
@@ -856,9 +761,16 @@ function Dashboard({ activities, syncState, onSync }) {
         </div>
       </section>
 
-      <LatestRunSummary activity={analysis.latest} />
+      <section className="latest-activity-overview" aria-label="Ultima corsa e percorso">
+        <LatestRunSummary activity={analysis.latest} />
+        <LatestActivityRoute
+          activityId={analysis.latest.activityId}
+          refreshKey={`${syncState.status}-${syncState.message}`}
+          sport="running"
+        />
+      </section>
 
-      <section className="analysis-verdict">
+      <section className="analysis-verdict running-verdict">
         <div>
           <span>Lettura sintetica</span>
           <strong>
@@ -1222,9 +1134,16 @@ function Dashboard({ activities, syncState, onSync }) {
         />
       </section>
 
-      <HeartRateZoneAnalysis latest={analysis.latest} historical={analysis.historical} />
+      <HeartRateZonePanel
+        latest={analysis.latest}
+        historical={analysis.historical}
+        activityLabel="corsa"
+        titleId="running-heart-rate-zone-title"
+      />
 
       <EffortScatter historical={analysis.allPrevious} latest={analysis.latest} />
+
+      <RunningVisualAnalysis activities={activities} latest={analysis.latest} />
     </div>
   )
 }

@@ -42,6 +42,15 @@ CREATE TABLE IF NOT EXISTS activity_hr_zone_sync (
 CREATE INDEX IF NOT EXISTS idx_activity_hr_zones_activity
 ON activity_hr_zones(activity_id);
 
+CREATE TABLE IF NOT EXISTS activity_routes (
+    activity_id BIGINT PRIMARY KEY REFERENCES activities(activity_id) ON DELETE CASCADE,
+    status TEXT NOT NULL CHECK (status IN ('success', 'unavailable', 'failed')),
+    points_data TEXT NOT NULL,
+    point_count INTEGER NOT NULL DEFAULT 0 CHECK (point_count >= 0),
+    error_message TEXT,
+    synced_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS personal_records (
     record_key TEXT PRIMARY KEY,
     type_id INTEGER NOT NULL,
@@ -91,6 +100,7 @@ CREATE TABLE IF NOT EXISTS garmin_token_store (
 ALTER TABLE activities ENABLE ROW LEVEL SECURITY;
 ALTER TABLE activity_hr_zones ENABLE ROW LEVEL SECURITY;
 ALTER TABLE activity_hr_zone_sync ENABLE ROW LEVEL SECURITY;
+ALTER TABLE activity_routes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE personal_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE personal_record_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sync_runs ENABLE ROW LEVEL SECURITY;

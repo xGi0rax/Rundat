@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from config import CSV_FILE
+from domain.activity_route import parse_gpx_route
 from domain.sync_normalizers import (
     SUPPORTED_ACTIVITY_TYPES,
     clean_value as _clean_value,
@@ -13,6 +14,11 @@ from domain.sync_normalizers import (
     normalize_personal_records,
 )
 from services.activity_repository import latest_activity_start, upsert_activities
+from services.activity_route_repository import (
+    latest_activity_id,
+    route_needs_sync,
+    save_activity_route,
+)
 from services.database import connect
 from services.hr_zone_repository import (
     activity_ids_missing_hr_zones,
@@ -105,6 +111,8 @@ def sync_garmin(db_path: Path | None = None) -> dict[str, Any]:
         ]
         counts = upsert_activities(normalized, db_path)
         counts["zones"] = 0
+        for activity_type in ("running", "cycling"):
+            _sync_latest_activity_route(client, activity_type, db_path)
         for activity_id in activity_ids_missing_hr_zones(
             MAX_HR_ZONE_FETCHES_PER_SYNC,
             db_path,
@@ -136,6 +144,46 @@ def sync_garmin(db_path: Path | None = None) -> dict[str, Any]:
     except Exception as error:
         _finish_run(run_id, "failed", error_message=str(error), db_path=db_path)
         raise
+
+
+def _sync_latest_activity_route(
+    client: Any,
+    activity_type: str,
+    db_path: Path | None = None,
+) -> None:
+    activity_id = latest_activity_id(activity_type, db_path)
+    if activity_id is None or not route_needs_sync(activity_id, db_path):
+        return
+    try:
+        raw_gpx = client.download_activity(
+            str(activity_id),
+            client.ActivityDownloadFormat.GPX,
+        )
+        points = parse_gpx_route(raw_gpx)
+        if points:
+            save_activity_route(activity_id, points, "success", db_path=db_path)
+        else:
+            save_activity_route(
+                activity_id,
+                [],
+                "unavailable",
+                "Garmin non ha restituito coordinate GPS per questa attività.",
+                db_path,
+            )
+    except Exception as error:
+        LOGGER.warning(
+            "Route unavailable for latest %s activity %s: %s",
+            activity_type,
+            activity_id,
+            error,
+        )
+        save_activity_route(
+            activity_id,
+            [],
+            "failed",
+            str(error),
+            db_path,
+        )
 
 
 def list_sync_runs(limit: int = 20, db_path: Path | None = None) -> list[dict[str, Any]]:

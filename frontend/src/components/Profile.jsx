@@ -7,7 +7,13 @@ import {
   YAxis,
 } from 'recharts'
 import ChartContainer from './ChartContainer.jsx'
-import { formatDate, formatDistance, formatHeartRate } from '../utils/formatters.js'
+import {
+  formatDate,
+  formatDistance,
+  formatDuration,
+  formatHeartRate,
+} from '../utils/formatters.js'
+import { cyclingSpeedKmh } from '../domain/cyclingAnalysis.js'
 
 const recordLabels = {
   '1k': '1 km',
@@ -17,9 +23,9 @@ const recordLabels = {
   'Full Marathon': 'Maratona',
 }
 
-function MetricCard({ label, value, detail }) {
+function MetricCard({ label, value, detail, sport }) {
   return (
-    <article className="metric-card">
+    <article className={`metric-card${sport ? ` profile-${sport}-metric` : ''}`}>
       <p>{label}</p>
       <strong>{value}</strong>
       {detail && <span>{detail}</span>}
@@ -27,7 +33,17 @@ function MetricCard({ label, value, detail }) {
   )
 }
 
-function Profile({ summary, activities }) {
+function formatSpeed(value) {
+  return Number.isFinite(value)
+    ? `${value.toLocaleString('it-IT', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} km/h`
+    : '—'
+}
+
+function formatElevation(value) {
+  return `${Math.round(value).toLocaleString('it-IT')} m`
+}
+
+function Profile({ summary, activities, cyclingActivities = [] }) {
   const chartData = activities.slice(0, 10).reverse()
   const records = Object.entries(summary?.personalBests ?? {})
   const totalActivities = summary?.totalActivities ?? activities.length
@@ -35,13 +51,34 @@ function Profile({ summary, activities }) {
     ?? activities.reduce((sum, activity) => sum + (Number(activity.km) || 0), 0)
   const last7DaysDistance = summary?.last7DaysDistanceKm ?? 0
   const latestActivity = summary?.latestActivity ?? activities[0] ?? null
+  const orderedCyclingActivities = [...cyclingActivities].sort(
+    (first, second) => new Date(second.startTimeLocal) - new Date(first.startTimeLocal),
+  )
+  const latestCyclingActivity = orderedCyclingActivities[0] ?? null
+  const cyclingTotals = cyclingActivities.reduce((totals, activity) => ({
+    distance: totals.distance + (Number(activity.km) || 0),
+    duration: totals.duration + (Number(activity.duration) || 0),
+    elevation: totals.elevation + (Number(activity.elevationGain) || 0),
+  }), { distance: 0, duration: 0, elevation: 0 })
+  const averageCyclingSpeed = cyclingTotals.duration > 0
+    ? ((cyclingTotals.distance * 1000) / cyclingTotals.duration) * 3.6
+    : null
+  const recentCutoff = new Date()
+  recentCutoff.setDate(recentCutoff.getDate() - 7)
+  const recentCyclingActivities = cyclingActivities.filter(
+    (activity) => new Date(activity.startTimeLocal) >= recentCutoff,
+  )
+  const recentCyclingDistance = recentCyclingActivities.reduce(
+    (sum, activity) => sum + (Number(activity.km) || 0),
+    0,
+  )
 
   return (
     <div className="page-stack">
       <section className="page-heading">
         <div>
           <p className="eyebrow">Profilo</p>
-          <h1>La mia corsa, in sintesi.</h1>
+          <h1>Corsa e bici, in sintesi.</h1>
           <p>Volume complessivo, attività registrate e migliori prestazioni.</p>
         </div>
       </section>
@@ -105,17 +142,73 @@ function Profile({ summary, activities }) {
         </article>
       </section>
 
-      <section className="metrics-grid" aria-label="Metriche principali">
-        <MetricCard label="Corse registrate" value={totalActivities.toLocaleString('it-IT')} />
-        <MetricCard label="Distanza totale" value={formatDistance(totalDistance)} />
-        <MetricCard label="Ultimi 7 giorni" value={formatDistance(last7DaysDistance)} />
-        <MetricCard
-          label="Ultima corsa"
-          value={latestActivity ? formatDistance(latestActivity.km) : '—'}
-          detail={latestActivity
-            ? formatDate(latestActivity.startTimeLocal, 'long')
-            : 'Nessuna corsa registrata'}
-        />
+      <section className="profile-metrics-section" aria-labelledby="profile-running-title">
+        <div className="profile-metrics-heading running">
+          <p className="eyebrow">Corsa</p>
+          <h2 id="profile-running-title">Riepilogo corsa</h2>
+        </div>
+        <div className="metrics-grid" aria-label="Metriche principali della corsa">
+          <MetricCard
+            sport="running"
+            label="Corse registrate"
+            value={totalActivities.toLocaleString('it-IT')}
+          />
+          <MetricCard
+            sport="running"
+            label="Distanza totale"
+            value={formatDistance(totalDistance)}
+          />
+          <MetricCard
+            sport="running"
+            label="Ultimi 7 giorni"
+            value={formatDistance(last7DaysDistance)}
+          />
+          <MetricCard
+            sport="running"
+            label="Ultima corsa"
+            value={latestActivity ? formatDistance(latestActivity.km) : '—'}
+            detail={latestActivity
+              ? formatDate(latestActivity.startTimeLocal, 'long')
+              : 'Nessuna corsa registrata'}
+          />
+        </div>
+      </section>
+
+      <section className="profile-metrics-section" aria-labelledby="profile-cycling-title">
+        <div className="profile-metrics-heading cycling">
+          <p className="eyebrow">Bici</p>
+          <h2 id="profile-cycling-title">Riepilogo bici</h2>
+        </div>
+        <div className="metrics-grid" aria-label="Metriche principali della bici">
+          <MetricCard
+            sport="cycling"
+            label="Uscite registrate"
+            value={cyclingActivities.length.toLocaleString('it-IT')}
+            detail={`Tempo totale ${formatDuration(cyclingTotals.duration)}`}
+          />
+          <MetricCard
+            sport="cycling"
+            label="Distanza totale"
+            value={formatDistance(cyclingTotals.distance)}
+            detail={`Dislivello totale ${formatElevation(cyclingTotals.elevation)}`}
+          />
+          <MetricCard
+            sport="cycling"
+            label="Ultimi 7 giorni"
+            value={formatDistance(recentCyclingDistance)}
+            detail={`${recentCyclingActivities.length} ${recentCyclingActivities.length === 1 ? 'uscita' : 'uscite'} · media ${formatSpeed(averageCyclingSpeed)}`}
+          />
+          <MetricCard
+            sport="cycling"
+            label="Ultima uscita"
+            value={latestCyclingActivity
+              ? formatDistance(latestCyclingActivity.km)
+              : '—'}
+            detail={latestCyclingActivity
+              ? `${formatDate(latestCyclingActivity.startTimeLocal, 'long')} · ${formatSpeed(cyclingSpeedKmh(latestCyclingActivity))}`
+              : 'Nessuna uscita in bici registrata'}
+          />
+        </div>
       </section>
     </div>
   )

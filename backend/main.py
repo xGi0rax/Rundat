@@ -9,8 +9,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from config import CSV_FILE, get_access_token, get_cors_origins
-from schemas import ActivitySummary, DashboardSummary, PersonalBest, PersonalBestHistory, SyncRun
+from schemas import (
+    ActivityRoute,
+    ActivitySummary,
+    DashboardSummary,
+    PersonalBest,
+    PersonalBestHistory,
+    SyncRun,
+)
 from services.activity_repository import count_activities
+from services.activity_route_repository import get_activity_route
 from services.activity_service import (
     get_activities,
     get_dashboard,
@@ -79,6 +87,18 @@ def health_endpoint():
 )
 def activities_endpoint():
     return get_activities()
+
+
+@app.get(
+    "/api/activities/{activity_id}/route",
+    response_model=ActivityRoute,
+    dependencies=[Depends(require_access_token)],
+)
+def activity_route_endpoint(activity_id: int):
+    try:
+        return get_activity_route(activity_id)
+    except LookupError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
 
 
 @app.get(

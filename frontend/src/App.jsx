@@ -18,6 +18,90 @@ const GeneralDashboard = lazy(() => import('./components/GeneralDashboard.jsx'))
 const Profile = lazy(() => import('./components/Profile.jsx'))
 const Trends = lazy(() => import('./components/Trends.jsx'))
 
+const navigationItems = [
+  { href: '#dashboard', view: 'dashboard', label: 'Dashboard generale', icon: 'dashboard' },
+  { href: '#running', view: 'running', label: 'Corsa', icon: 'running' },
+  { href: '#bici', view: 'cycling', label: 'Bici', icon: 'cycling' },
+  { href: '#activities', view: 'activities', label: 'Archivio attività', icon: 'archive' },
+  { href: '#analytics', view: 'analytics', label: 'Analisi corsa', icon: 'analytics' },
+  { href: '#trends', view: 'trends', label: 'Trend corsa', icon: 'trends' },
+  { href: '#profilo', view: 'profile', label: 'Profilo', icon: 'profile' },
+]
+
+function MenuIcon({ type }) {
+  const paths = {
+    dashboard: (
+      <>
+        <rect x="3" y="3" width="7" height="9" rx="1.5" />
+        <rect x="14" y="3" width="7" height="5" rx="1.5" />
+        <rect x="14" y="12" width="7" height="9" rx="1.5" />
+        <rect x="3" y="16" width="7" height="5" rx="1.5" />
+      </>
+    ),
+    running: (
+      <>
+        <circle cx="14" cy="4.5" r="2" />
+        <path d="m6 21 3.4-6.2 3.2 2.1 2.2 4.1" />
+        <path d="m8.2 14.8 2.2-5 3.2-1.8 2.3 3 4.1 1" />
+        <path d="m10.4 9.8-3.2 2.4" />
+      </>
+    ),
+    cycling: (
+      <>
+        <circle cx="5.5" cy="17.5" r="3.5" />
+        <circle cx="18.5" cy="17.5" r="3.5" />
+        <path d="m5.5 17.5 3.2-8h3.8l3 8h-10Z" />
+        <path d="m12.5 9.5 2.2-3h2.8" />
+        <path d="M7.5 6.5h3" />
+      </>
+    ),
+    archive: (
+      <>
+        <rect x="3" y="4" width="18" height="4" rx="1.5" />
+        <path d="M5 8v11.5A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V8" />
+        <path d="M9 12h6" />
+      </>
+    ),
+    analytics: (
+      <>
+        <path d="M4 20V11" />
+        <path d="M10 20V5" />
+        <path d="M16 20v-7" />
+        <path d="M22 20V8" />
+        <path d="M2 20h20" />
+      </>
+    ),
+    trends: (
+      <>
+        <path d="m3 17 6-6 4 4 8-8" />
+        <path d="M15 7h6v6" />
+      </>
+    ),
+    profile: (
+      <>
+        <circle cx="12" cy="8" r="4" />
+        <path d="M4.5 21a7.5 7.5 0 0 1 15 0" />
+      </>
+    ),
+  }
+
+  return (
+    <span className="nav-icon" aria-hidden="true">
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        focusable="false"
+      >
+        {paths[type]}
+      </svg>
+    </span>
+  )
+}
+
 function currentView() {
   if (window.location.hash === '#running') return 'running'
   if (window.location.hash === '#cycling' || window.location.hash === '#bici') return 'cycling'
@@ -170,34 +254,16 @@ function App() {
           <span>Rundat</span>
         </a>
         <nav className="main-nav" aria-label="Navigazione principale">
-          <a href="#dashboard" aria-current={view === 'dashboard' ? 'page' : undefined}>
-            <span className="nav-icon" aria-hidden="true">🏠</span>
-            <span>Dashboard generale</span>
-          </a>
-          <a href="#running" aria-current={view === 'running' ? 'page' : undefined}>
-            <span className="nav-icon" aria-hidden="true">🏃🏼‍♂️</span>
-            <span>Corsa</span>
-          </a>
-          <a href="#bici" aria-current={view === 'cycling' ? 'page' : undefined}>
-            <span className="nav-icon" aria-hidden="true">🚴‍♂️</span>
-            <span>Bici</span>
-          </a>
-          <a href="#activities" aria-current={view === 'activities' ? 'page' : undefined}>
-            <span className="nav-icon" aria-hidden="true">📚</span>
-            <span>Archivio attività</span>
-          </a>
-          <a href="#analytics" aria-current={view === 'analytics' ? 'page' : undefined}>
-            <span className="nav-icon" aria-hidden="true">📊</span>
-            <span>Analisi corsa</span>
-          </a>
-          <a href="#trends" aria-current={view === 'trends' ? 'page' : undefined}>
-            <span className="nav-icon" aria-hidden="true">📈</span>
-            <span>Trend corsa</span>
-          </a>
-          <a href="#profilo" aria-current={view === 'profile' ? 'page' : undefined}>
-            <span className="nav-icon" aria-hidden="true">👤</span>
-            <span>Profilo</span>
-          </a>
+          {navigationItems.map((item) => (
+            <a
+              key={item.view}
+              href={item.href}
+              aria-current={view === item.view ? 'page' : undefined}
+            >
+              <MenuIcon type={item.icon} />
+              <span>{item.label}</span>
+            </a>
+          ))}
         </nav>
       </header>
 
@@ -230,7 +296,11 @@ function App() {
               />
             )}
             {view === 'profile' && (
-              <Profile summary={data.dashboard} activities={runningActivities} />
+              <Profile
+                summary={data.dashboard}
+                activities={runningActivities}
+                cyclingActivities={cyclingActivities}
+              />
             )}
             {view === 'activities' && <Activities activities={data.activities} />}
             {view === 'analytics' && <Analytics activities={runningActivities} />}

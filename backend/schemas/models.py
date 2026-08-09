@@ -37,6 +37,20 @@ class ActivitySummary(ApiModel):
     )
 
 
+class RoutePoint(ApiModel):
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+    elevation: float | None = None
+
+
+class ActivityRoute(ApiModel):
+    activity_id: int = Field(alias="activityId")
+    status: Literal["success", "unavailable", "failed", "pending"]
+    points: list[RoutePoint] = Field(default_factory=list)
+    point_count: int = Field(alias="pointCount", ge=0)
+    error_message: str | None = Field(default=None, alias="errorMessage")
+
+
 class PersonalBest(ApiModel):
     distance: float = Field(ge=0)
     date: str

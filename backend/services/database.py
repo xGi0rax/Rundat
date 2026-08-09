@@ -180,6 +180,17 @@ def _common_schema_statements(sync_run_id: str) -> tuple[str, ...]:
         ON activity_hr_zones(activity_id)
         """,
         """
+        CREATE TABLE IF NOT EXISTS activity_routes (
+            activity_id BIGINT PRIMARY KEY,
+            status TEXT NOT NULL CHECK (status IN ('success', 'unavailable', 'failed')),
+            points_data TEXT NOT NULL,
+            point_count INTEGER NOT NULL DEFAULT 0 CHECK (point_count >= 0),
+            error_message TEXT,
+            synced_at TEXT NOT NULL,
+            FOREIGN KEY (activity_id) REFERENCES activities(activity_id) ON DELETE CASCADE
+        )
+        """,
+        """
         CREATE TABLE IF NOT EXISTS personal_records (
             record_key TEXT PRIMARY KEY,
             type_id INTEGER NOT NULL,
@@ -246,6 +257,7 @@ def _postgres_schema_statements() -> tuple[str, ...]:
                 "activities",
                 "activity_hr_zones",
                 "activity_hr_zone_sync",
+                "activity_routes",
                 "personal_records",
                 "personal_record_history",
                 "sync_runs",

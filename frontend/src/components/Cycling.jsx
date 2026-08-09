@@ -15,6 +15,8 @@ import {
   YAxis,
 } from 'recharts'
 import ChartContainer from './ChartContainer.jsx'
+import HeartRateZonePanel from './HeartRateZonePanel.jsx'
+import LatestActivityRoute from './LatestRunRoute.jsx'
 import PeriodPicker from './PeriodPicker.jsx'
 import {
   formatDate,
@@ -190,6 +192,23 @@ function LatestRideSummary({ activity }) {
   )
 }
 
+function LatestCyclingScatterPoint({ cx, cy }) {
+  return (
+    <g aria-label="Ultima uscita in bici">
+      <circle cx={cx} cy={cy} r={13} fill="transparent" />
+      <rect
+        x={cx - 5.5}
+        y={cy - 5.5}
+        width={11}
+        height={11}
+        rx={1}
+        fill="#ef5b24"
+        transform={`rotate(45 ${cx} ${cy})`}
+      />
+    </g>
+  )
+}
+
 function CyclingCharts({ activities, latest }) {
   const [period, setPeriod] = useState({ amount: 1, unit: 'year' })
   const referenceDate = new Date(latest.startTimeLocal)
@@ -216,6 +235,12 @@ function CyclingCharts({ activities, latest }) {
   }))
   const scatterData = trendData.filter(
     (activity) => Number.isFinite(activity.speed) && Number.isFinite(activity.heartRate),
+  )
+  const latestScatterData = scatterData.filter(
+    (activity) => activity.id === latest.activityId,
+  )
+  const historicalScatterData = scatterData.filter(
+    (activity) => activity.id !== latest.activityId,
   )
   const latestZones = heartRateZoneSummary(latest)
   const historicalZoneSummaries = selectedActivities
@@ -366,43 +391,53 @@ function CyclingCharts({ activities, latest }) {
           </div>
         </div>
         {scatterData.length > 1 ? (
-          <div className="cycling-analysis-chart cycling-scatter-chart">
-            <ChartContainer>
-              <ScatterChart margin={{ top: 14, right: 28, left: 4, bottom: 10 }}>
-                <CartesianGrid stroke="#e1e4df" />
-                <XAxis
-                  type="number"
-                  dataKey="heartRate"
-                  name="FC media"
-                  unit=" bpm"
-                  domain={['auto', 'auto']}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <YAxis
-                  type="number"
-                  dataKey="speed"
-                  name="Velocità media"
-                  unit=" km/h"
-                  domain={['auto', 'auto']}
-                  tickLine={false}
-                  axisLine={false}
-                  width={52}
-                />
-                <ReferenceLine x={medianHeartRate} stroke="#9da8a0" strokeDasharray="4 4" />
-                <ReferenceLine y={medianSpeed} stroke="#9da8a0" strokeDasharray="4 4" />
-                <Tooltip
-                  cursor={{ strokeDasharray: '4 4' }}
-                  formatter={(value, name) => [
-                    name === 'Velocità media' ? formatSpeed(value) : formatHeartRate(value),
-                    name,
-                  ]}
-                  labelFormatter={(_value, payload) => payload?.[0]?.payload?.name ?? ''}
-                />
-                <Scatter data={scatterData} fill="#345f9d" />
-              </ScatterChart>
-            </ChartContainer>
-          </div>
+          <>
+            <div className="effort-map-legend cycling-effort-legend">
+              <span><i className="cycling-historical" /> Uscite precedenti</span>
+              <span><i className="cycling-latest" /> Ultima uscita</span>
+            </div>
+            <div className="cycling-analysis-chart cycling-scatter-chart">
+              <ChartContainer>
+                <ScatterChart margin={{ top: 14, right: 28, left: 4, bottom: 10 }}>
+                  <CartesianGrid stroke="#e1e4df" />
+                  <XAxis
+                    type="number"
+                    dataKey="heartRate"
+                    name="FC media"
+                    unit=" bpm"
+                    domain={['auto', 'auto']}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    type="number"
+                    dataKey="speed"
+                    name="Velocità media"
+                    unit=" km/h"
+                    domain={['auto', 'auto']}
+                    tickLine={false}
+                    axisLine={false}
+                    width={52}
+                  />
+                  <ReferenceLine x={medianHeartRate} stroke="#9da8a0" strokeDasharray="4 4" />
+                  <ReferenceLine y={medianSpeed} stroke="#9da8a0" strokeDasharray="4 4" />
+                  <Tooltip
+                    cursor={{ strokeDasharray: '4 4' }}
+                    formatter={(value, name) => [
+                      name === 'Velocità media' ? formatSpeed(value) : formatHeartRate(value),
+                      name,
+                    ]}
+                    labelFormatter={(_value, payload) => payload?.[0]?.payload?.name ?? ''}
+                  />
+                  <Scatter data={historicalScatterData} fill="#345f9d" />
+                  <Scatter
+                    data={latestScatterData}
+                    shape={(props) => <LatestCyclingScatterPoint {...props} />}
+                  />
+                </ScatterChart>
+              </ChartContainer>
+            </div>
+          </>
         ) : (
           <div className="comparison-empty">
             <strong>Dati insufficienti</strong>
@@ -482,7 +517,14 @@ function Cycling({ activities, syncState = { status: 'idle', message: '' }, onSy
         </div>
       </section>
 
-      <LatestRideSummary activity={analysis.latest} />
+      <section className="latest-activity-overview" aria-label="Ultima uscita in bici e percorso">
+        <LatestRideSummary activity={analysis.latest} />
+        <LatestActivityRoute
+          activityId={analysis.latest.activityId}
+          refreshKey={`${syncState.status}-${syncState.message}`}
+          sport="cycling"
+        />
+      </section>
 
       <section className="analysis-verdict cycling-verdict">
         <div>
@@ -556,6 +598,14 @@ function Cycling({ activities, syncState = { status: 'idle', message: '' }, onSy
           rangeLabel="tutte le uscite con velocità e frequenza cardiaca valide"
         />
       </section>
+
+      <HeartRateZonePanel
+        latest={analysis.latest}
+        historical={analysis.historical}
+        activityLabel="uscita in bici"
+        titleId="cycling-heart-rate-zone-title"
+        sport="cycling"
+      />
 
       <CyclingCharts activities={activities} latest={analysis.latest} />
     </div>

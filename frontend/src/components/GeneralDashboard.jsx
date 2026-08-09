@@ -116,14 +116,14 @@ function GeneralDashboard({ activities, syncState, onSync }) {
         <article className="panel running-recap-card">
           <p className="eyebrow">Corsa</p>
           <h2>{analysis.sport.running.count} attività</h2>
-          <strong>{formatDuration(analysis.sport.running.duration)}</strong>
-          <span>{formatDistance(analysis.sport.running.distanceKm)}</span>
+          <strong>Distanza: {formatDistance(analysis.sport.running.distanceKm)}</strong>
+          <span>Durata: {formatDuration(analysis.sport.running.duration)}</span>
         </article>
         <article className="panel cycling-recap-card">
           <p className="eyebrow">Bici</p>
           <h2>{analysis.sport.cycling.count} attività</h2>
-          <strong>{formatDuration(analysis.sport.cycling.duration)}</strong>
-          <span>{formatDistance(analysis.sport.cycling.distanceKm)}</span>
+          <strong>Distanza: {formatDistance(analysis.sport.cycling.distanceKm)}</strong>
+          <span>Durata: {formatDuration(analysis.sport.cycling.duration)}</span>
         </article>
       </section>
 
