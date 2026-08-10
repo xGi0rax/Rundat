@@ -122,7 +122,7 @@ function ComparisonCard({
                 layout="vertical"
                 margin={{ top: 4, right: 22, left: 8, bottom: 0 }}
               >
-                <CartesianGrid horizontal={false} stroke="#e3e6e1" />
+                <CartesianGrid horizontal={false} stroke="var(--chart-grid)" />
                 <XAxis
                   type="number"
                   domain={[0, 'auto']}
@@ -286,7 +286,7 @@ function CyclingCharts({ activities, latest }) {
             <div className="cycling-analysis-chart">
               <ChartContainer>
                 <LineChart data={trendData} margin={{ top: 12, right: 18, left: 0, bottom: 8 }}>
-                  <CartesianGrid stroke="#e1e4df" vertical={false} />
+                  <CartesianGrid stroke="var(--chart-grid)" vertical={false} />
                   <XAxis dataKey="date" tickLine={false} axisLine={false} minTickGap={22} />
                   <YAxis
                     yAxisId="speed"
@@ -353,7 +353,7 @@ function CyclingCharts({ activities, latest }) {
             <div className="cycling-analysis-chart">
               <ChartContainer>
                 <BarChart data={zoneData} margin={{ top: 12, right: 12, left: 0, bottom: 8 }}>
-                  <CartesianGrid stroke="#e1e4df" vertical={false} />
+                  <CartesianGrid stroke="var(--chart-grid)" vertical={false} />
                   <XAxis dataKey="zone" tickLine={false} axisLine={false} />
                   <YAxis
                     domain={[0, 100]}
@@ -399,7 +399,7 @@ function CyclingCharts({ activities, latest }) {
             <div className="cycling-analysis-chart cycling-scatter-chart">
               <ChartContainer>
                 <ScatterChart margin={{ top: 14, right: 28, left: 4, bottom: 10 }}>
-                  <CartesianGrid stroke="#e1e4df" />
+                  <CartesianGrid stroke="var(--chart-grid)" />
                   <XAxis
                     type="number"
                     dataKey="heartRate"
@@ -419,8 +419,8 @@ function CyclingCharts({ activities, latest }) {
                     axisLine={false}
                     width={52}
                   />
-                  <ReferenceLine x={medianHeartRate} stroke="#9da8a0" strokeDasharray="4 4" />
-                  <ReferenceLine y={medianSpeed} stroke="#9da8a0" strokeDasharray="4 4" />
+                  <ReferenceLine x={medianHeartRate} stroke="var(--chart-muted)" strokeDasharray="4 4" />
+                  <ReferenceLine y={medianSpeed} stroke="var(--chart-muted)" strokeDasharray="4 4" />
                   <Tooltip
                     cursor={{ strokeDasharray: '4 4' }}
                     formatter={(value, name) => [

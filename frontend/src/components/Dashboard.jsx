@@ -277,7 +277,7 @@ function ComparisonChart({
                 layout="vertical"
                 margin={{ top: 4, right: 22, left: 8, bottom: 0 }}
               >
-                <CartesianGrid horizontal={false} stroke="#e3e6e1" />
+                <CartesianGrid horizontal={false} stroke="var(--chart-grid)" />
                 <XAxis
                   type="number"
                   domain={[0, 'auto']}
@@ -577,7 +577,7 @@ function EffortScatter({ historical, latest }) {
           <div className="effort-map-chart">
             <ChartContainer>
               <ScatterChart margin={{ top: 14, right: 28, left: 4, bottom: 10 }}>
-                <CartesianGrid stroke="#e1e4df" />
+                <CartesianGrid stroke="var(--chart-grid)" />
                 <XAxis
                   type="number"
                   dataKey="heartRate"
@@ -610,10 +610,10 @@ function EffortScatter({ historical, latest }) {
                   }}
                 />
                 {medianHeartRate != null && (
-                  <ReferenceLine x={medianHeartRate} stroke="#aeb6ae" strokeDasharray="5 5" />
+                  <ReferenceLine x={medianHeartRate} stroke="var(--chart-muted)" strokeDasharray="5 5" />
                 )}
                 {medianPace != null && (
-                  <ReferenceLine y={medianPace} stroke="#aeb6ae" strokeDasharray="5 5" />
+                  <ReferenceLine y={medianPace} stroke="var(--chart-muted)" strokeDasharray="5 5" />
                 )}
                 <Scatter
                   data={historicalData}

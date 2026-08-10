@@ -380,7 +380,7 @@ function TrendChart({ metric: baseMetric, data, granularity }) {
         <div className="trend-chart">
           <ChartContainer>
             <LineChart data={analysis.data} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
-              <CartesianGrid vertical={false} stroke="#e1e4df" />
+              <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
               <XAxis
                 dataKey="date"
                 tickFormatter={(value) => trendTickLabel(value, granularity, showMonthYear)}
@@ -505,7 +505,7 @@ function RecordTrend({ history, start }) {
         <div className="record-trend-chart">
           <ChartContainer>
             <LineChart data={analysis.data} margin={{ top: 16, right: 22, left: 4, bottom: 0 }}>
-              <CartesianGrid vertical={false} stroke="#e1e4df" />
+              <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
               <XAxis
                 dataKey="date"
                 tickFormatter={(value) => formatDate(value, 'short')}

@@ -2,16 +2,8 @@ import Cycling from './Cycling.jsx'
 import Dashboard from './Dashboard.jsx'
 
 const sportOptions = [
-  {
-    value: 'running',
-    label: 'Corsa',
-    description: 'Passo, prestazioni e analisi delle corse',
-  },
-  {
-    value: 'cycling',
-    label: 'Bici',
-    description: 'Velocità, efficienza e analisi delle uscite',
-  },
+  { value: 'running', label: 'Corsa' },
+  { value: 'cycling', label: 'Bici' },
 ]
 
 function Sports({
@@ -42,7 +34,6 @@ function Sports({
                 onClick={() => onSportChange(option.value)}
               >
                 <span>{option.label}</span>
-                <small>{option.description}</small>
               </button>
             )
           })}

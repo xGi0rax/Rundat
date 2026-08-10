@@ -198,7 +198,7 @@ function GeneralDashboard({ activities, syncState, onSync }) {
                 <div className="zone-history-chart combined-zone-history-chart">
                   <ChartContainer>
                     <BarChart data={analysis.history} margin={{ top: 12, right: 18, left: 0, bottom: 4 }}>
-                      <CartesianGrid vertical={false} stroke="#e1e4df" />
+                      <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
                       <XAxis
                         dataKey="date"
                         tickFormatter={(value) => historyLabel(value, analysis.granularity)}

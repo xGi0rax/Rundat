@@ -17,65 +17,106 @@ const Sports = lazy(() => import('./components/Sports.jsx'))
 const Trends = lazy(() => import('./components/Trends.jsx'))
 
 const navigationItems = [
-  { href: '#dashboard', view: 'dashboard', label: 'Dashboard generale', icon: 'dashboard' },
-  { href: '#sport', view: 'sports', label: 'Corsa e bici', icon: 'running' },
-  { href: '#analytics', view: 'analytics', label: 'Analisi corsa', icon: 'analytics' },
-  { href: '#trends', view: 'trends', label: 'Trend corsa', icon: 'trends' },
-  { href: '#profilo', view: 'profile', label: 'Profilo', icon: 'profile' },
+  {
+    href: '#dashboard', view: 'dashboard', label: 'Dashboard generale', mobileLabel: 'Home', icon: 'dashboard',
+  },
+  { href: '#sport', view: 'sports', label: 'Attività', mobileLabel: 'Attività', icon: 'ironman' },
+  { href: '#analytics', view: 'analytics', label: 'Analisi corsa', mobileLabel: 'Analisi', icon: 'analytics' },
+  { href: '#trends', view: 'trends', label: 'Trend corsa', mobileLabel: 'Trend', icon: 'trends' },
+  { href: '#profilo', view: 'profile', label: 'Profilo', mobileLabel: 'Profilo', icon: 'profile' },
 ]
 
 function MenuIcon({ type }) {
-  const paths = {
-    dashboard: (
-      <>
-        <rect x="3" y="3" width="7" height="9" rx="1.5" />
-        <rect x="14" y="3" width="7" height="5" rx="1.5" />
-        <rect x="14" y="12" width="7" height="9" rx="1.5" />
-        <rect x="3" y="16" width="7" height="5" rx="1.5" />
-      </>
-    ),
-    running: (
-      <>
-        <circle cx="14" cy="4.5" r="2" />
-        <path d="m6 21 3.4-6.2 3.2 2.1 2.2 4.1" />
-        <path d="m8.2 14.8 2.2-5 3.2-1.8 2.3 3 4.1 1" />
-        <path d="m10.4 9.8-3.2 2.4" />
-      </>
-    ),
-    cycling: (
-      <>
-        <circle cx="5.5" cy="17.5" r="3.5" />
-        <circle cx="18.5" cy="17.5" r="3.5" />
-        <path d="m5.5 17.5 3.2-8h3.8l3 8h-10Z" />
-        <path d="m12.5 9.5 2.2-3h2.8" />
-        <path d="M7.5 6.5h3" />
-      </>
-    ),
-    analytics: (
-      <>
-        <path d="M4 20V11" />
-        <path d="M10 20V5" />
-        <path d="M16 20v-7" />
-        <path d="M22 20V8" />
-        <path d="M2 20h20" />
-      </>
-    ),
-    trends: (
-      <>
-        <path d="m3 17 6-6 4 4 8-8" />
-        <path d="M15 7h6v6" />
-      </>
-    ),
-    profile: (
-      <>
-        <circle cx="12" cy="8" r="4" />
-        <path d="M4.5 21a7.5 7.5 0 0 1 15 0" />
-      </>
-    ),
+  const icons = {
+    dashboard: {
+      outline: (
+        <>
+          <path d="m3 10 9-7 9 7" />
+          <path d="M5 9v11h14V9" />
+          <path d="M9 20v-6h6v6" />
+        </>
+      ),
+      filled: (
+        <path
+          d="M2.6 9.6 12 2.3l9.4 7.3-1.2 1.6-1.2-.9V20a1 1 0 0 1-1 1h-4.2v-6.3h-3.6V21H6a1 1 0 0 1-1-1v-9.7l-1.2.9-1.2-1.6Z"
+          fill="currentColor"
+          stroke="none"
+        />
+      ),
+    },
+    ironman: {
+      outline: (
+        <>
+          <circle cx="12" cy="4" r="2.2" />
+          <path d="M3.5 20V8.5h4.2l4.3 6.2 4.3-6.2h4.2V20" />
+          <path d="M7.7 20v-5.3l4.3 6 4.3-6V20" />
+        </>
+      ),
+      filled: (
+        <>
+          <circle cx="12" cy="3.8" r="2.7" fill="currentColor" stroke="none" />
+          <path
+            d="M3 8h4.7l4.3 6.2L16.3 8H21v13h-4.2v-6.7L12 21l-4.8-6.7V21H3V8Z"
+            fill="currentColor"
+            stroke="none"
+          />
+        </>
+      ),
+    },
+    analytics: {
+      outline: (
+        <>
+          <path d="M4 20V11" />
+          <path d="M10 20V5" />
+          <path d="M16 20v-7" />
+          <path d="M22 20V8" />
+          <path d="M2 20h20" />
+        </>
+      ),
+      filled: (
+        <>
+          <rect x="2" y="11" width="4" height="10" rx="1.2" fill="currentColor" stroke="none" />
+          <rect x="8" y="4" width="4" height="17" rx="1.2" fill="currentColor" stroke="none" />
+          <rect x="14" y="13" width="4" height="8" rx="1.2" fill="currentColor" stroke="none" />
+          <rect x="20" y="7" width="4" height="14" rx="1.2" fill="currentColor" stroke="none" />
+        </>
+      ),
+    },
+    trends: {
+      outline: (
+        <>
+          <path d="m3 17 6-6 4 4 8-8" />
+          <path d="M15 7h6v6" />
+        </>
+      ),
+      filled: (
+        <path
+          d="M3 18.2 9 12l4 3.7 8-8.4V21H3v-2.8Zm11.8-12h6.8V13l-2.2-2.2-6.3 6.6L9 13.6l-4.9 5.1-1.5-1.5L9 10.5l4 3.7 4.9-5.1-3.1-2.9Z"
+          fill="currentColor"
+          stroke="none"
+        />
+      ),
+    },
+    profile: {
+      outline: (
+        <>
+          <circle cx="12" cy="8" r="4" />
+          <path d="M4.5 21a7.5 7.5 0 0 1 15 0" />
+        </>
+      ),
+      filled: (
+        <>
+          <circle cx="12" cy="7.5" r="4.5" fill="currentColor" stroke="none" />
+          <path d="M3.5 21a8.5 8.5 0 0 1 17 0H3.5Z" fill="currentColor" stroke="none" />
+        </>
+      ),
+    },
   }
 
+  const icon = icons[type]
+
   return (
-    <span className="nav-icon" aria-hidden="true">
+    <span className={`nav-icon nav-icon-${type}`} aria-hidden="true">
       <svg
         viewBox="0 0 24 24"
         fill="none"
@@ -85,7 +126,8 @@ function MenuIcon({ type }) {
         strokeLinejoin="round"
         focusable="false"
       >
-        {paths[type]}
+        <g className="nav-icon-outline">{icon.outline}</g>
+        <g className="nav-icon-filled">{icon.filled}</g>
       </svg>
     </span>
   )
@@ -112,9 +154,16 @@ function currentSport() {
   ) ? 'cycling' : 'running'
 }
 
+function preferredTheme() {
+  const storedTheme = window.localStorage.getItem('rundat-theme')
+  if (storedTheme === 'light' || storedTheme === 'dark') return storedTheme
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+}
+
 function App() {
   const [view, setView] = useState(currentView)
   const [sport, setSport] = useState(currentSport)
+  const [theme, setTheme] = useState(preferredTheme)
   const [data, setData] = useState({ dashboard: null, activities: [], recordHistory: null })
   const [status, setStatus] = useState('checking')
   const [error, setError] = useState('')
@@ -128,6 +177,11 @@ function App() {
     () => activitiesOfType(data.activities, 'cycling'),
     [data.activities],
   )
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    window.localStorage.setItem('rundat-theme', theme)
+  }, [theme])
 
   const loadData = useCallback(() => {
     setStatus('loading')
@@ -274,11 +328,31 @@ function App() {
               aria-current={view === item.view ? 'page' : undefined}
             >
               <MenuIcon type={item.icon} />
-              <span>{item.label}</span>
+              <span className="nav-label nav-label-desktop">{item.label}</span>
+              <span className="nav-label nav-label-mobile">{item.mobileLabel}</span>
             </a>
           ))}
         </nav>
       </header>
+
+      <button
+        type="button"
+        className="theme-toggle"
+        role="switch"
+        aria-checked={theme === 'dark'}
+        aria-label={theme === 'dark' ? 'Attiva modalità chiara' : 'Attiva modalità scura'}
+        title={theme === 'dark' ? 'Modalità chiara' : 'Modalità scura'}
+        onClick={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
+      >
+        <span className="theme-toggle-track" aria-hidden="true">
+          <span className="theme-toggle-symbol theme-toggle-sun">☀</span>
+          <span className="theme-toggle-symbol theme-toggle-moon">☾</span>
+          <span className="theme-toggle-thumb" />
+        </span>
+        <span className="theme-toggle-label">
+          {theme === 'dark' ? 'Tema chiaro' : 'Tema scuro'}
+        </span>
+      </button>
 
       <main id="main-content">
         {(status === 'checking' || status === 'loading') && <StatusPanel type="loading" />}

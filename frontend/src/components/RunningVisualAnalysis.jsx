@@ -265,7 +265,7 @@ function RunningVisualAnalysis({ activities, latest }) {
               <div className="running-visual-chart">
                 <ChartContainer>
                   <ScatterChart margin={{ top: 12, right: 26, left: 4, bottom: 10 }}>
-                    <CartesianGrid stroke="#e1e4df" />
+                    <CartesianGrid stroke="var(--chart-grid)" />
                     <XAxis
                       type="number"
                       dataKey="distance"
@@ -287,10 +287,10 @@ function RunningVisualAnalysis({ activities, latest }) {
                       width={54}
                     />
                     {medianDistance != null && (
-                      <ReferenceLine x={medianDistance} stroke="#aeb6ae" strokeDasharray="5 5" />
+                      <ReferenceLine x={medianDistance} stroke="var(--chart-muted)" strokeDasharray="5 5" />
                     )}
                     {medianPace != null && (
-                      <ReferenceLine y={medianPace} stroke="#aeb6ae" strokeDasharray="5 5" />
+                      <ReferenceLine y={medianPace} stroke="var(--chart-muted)" strokeDasharray="5 5" />
                     )}
                     <Tooltip
                       cursor={{ strokeDasharray: '4 4' }}
@@ -339,7 +339,7 @@ function RunningVisualAnalysis({ activities, latest }) {
             <div className="running-visual-chart">
               <ChartContainer>
                 <ScatterChart margin={{ top: 12, right: 28, left: 4, bottom: 10 }}>
-                  <CartesianGrid stroke="#e1e4df" />
+                  <CartesianGrid stroke="var(--chart-grid)" />
                   <XAxis
                     type="number"
                     dataKey="durationMinutes"
@@ -360,10 +360,10 @@ function RunningVisualAnalysis({ activities, latest }) {
                     width={45}
                   />
                   {medianDuration != null && (
-                    <ReferenceLine x={medianDuration} stroke="#aeb6ae" strokeDasharray="5 5" />
+                    <ReferenceLine x={medianDuration} stroke="var(--chart-muted)" strokeDasharray="5 5" />
                   )}
                   {medianIntensity != null && (
-                    <ReferenceLine y={medianIntensity} stroke="#aeb6ae" strokeDasharray="5 5" />
+                    <ReferenceLine y={medianIntensity} stroke="var(--chart-muted)" strokeDasharray="5 5" />
                   )}
                   <Tooltip
                     cursor={{ strokeDasharray: '4 4' }}
@@ -411,7 +411,7 @@ function RunningVisualAnalysis({ activities, latest }) {
             <div className="running-visual-chart efficiency-time-chart">
               <ChartContainer>
                 <LineChart data={efficiencyData} margin={{ top: 12, right: 24, left: 4, bottom: 8 }}>
-                  <CartesianGrid stroke="#e1e4df" vertical={false} />
+                  <CartesianGrid stroke="var(--chart-grid)" vertical={false} />
                   <XAxis dataKey="dateLabel" tickLine={false} axisLine={false} minTickGap={24} />
                   <YAxis
                     domain={['auto', 'auto']}
@@ -437,7 +437,7 @@ function RunningVisualAnalysis({ activities, latest }) {
                     type="monotone"
                     dataKey="rollingEfficiency"
                     name="Mediana mobile"
-                    stroke="#9aa49c"
+                    stroke="var(--chart-muted)"
                     strokeWidth={2}
                     strokeDasharray="6 5"
                     dot={false}

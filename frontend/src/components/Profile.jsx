@@ -12,8 +12,10 @@ import {
   formatDistance,
   formatDuration,
   formatHeartRate,
+  formatPaceDecimal,
 } from '../utils/formatters.js'
 import { cyclingSpeedKmh } from '../domain/cyclingAnalysis.js'
+import { paceMinutes } from '../domain/dashboardAnalysis.js'
 
 const recordLabels = {
   '1k': '1 km',
@@ -43,6 +45,10 @@ function formatElevation(value) {
   return `${Math.round(value).toLocaleString('it-IT')} m`
 }
 
+function formatPace(value) {
+  return Number.isFinite(value) ? `${formatPaceDecimal(value)} /km` : '—'
+}
+
 function Profile({ summary, activities, cyclingActivities = [] }) {
   const chartData = activities.slice(0, 10).reverse()
   const records = Object.entries(summary?.personalBests ?? {})
@@ -50,7 +56,15 @@ function Profile({ summary, activities, cyclingActivities = [] }) {
   const totalDistance = summary?.totalDistanceKm
     ?? activities.reduce((sum, activity) => sum + (Number(activity.km) || 0), 0)
   const last7DaysDistance = summary?.last7DaysDistanceKm ?? 0
-  const latestActivity = summary?.latestActivity ?? activities[0] ?? null
+  const orderedRunningActivities = [...activities].sort(
+    (first, second) => new Date(second.startTimeLocal) - new Date(first.startTimeLocal),
+  )
+  const latestActivity = summary?.latestActivity ?? orderedRunningActivities[0] ?? null
+  const runningTotals = activities.reduce((totals, activity) => ({
+    distance: totals.distance + (Number(activity.km) || 0),
+    duration: totals.duration + (Number(activity.duration) || 0),
+    elevation: totals.elevation + (Number(activity.elevationGain) || 0),
+  }), { distance: 0, duration: 0, elevation: 0 })
   const orderedCyclingActivities = [...cyclingActivities].sort(
     (first, second) => new Date(second.startTimeLocal) - new Date(first.startTimeLocal),
   )
@@ -60,11 +74,18 @@ function Profile({ summary, activities, cyclingActivities = [] }) {
     duration: totals.duration + (Number(activity.duration) || 0),
     elevation: totals.elevation + (Number(activity.elevationGain) || 0),
   }), { distance: 0, duration: 0, elevation: 0 })
-  const averageCyclingSpeed = cyclingTotals.duration > 0
-    ? ((cyclingTotals.distance * 1000) / cyclingTotals.duration) * 3.6
-    : null
   const recentCutoff = new Date()
   recentCutoff.setDate(recentCutoff.getDate() - 7)
+  const recentRunningActivities = activities.filter(
+    (activity) => new Date(activity.startTimeLocal) >= recentCutoff,
+  )
+  const recentRunningTotals = recentRunningActivities.reduce((totals, activity) => ({
+    distance: totals.distance + (Number(activity.km) || 0),
+    duration: totals.duration + (Number(activity.duration) || 0),
+  }), { distance: 0, duration: 0 })
+  const recentRunningPace = recentRunningTotals.distance > 0
+    ? (recentRunningTotals.duration / 60) / recentRunningTotals.distance
+    : null
   const recentCyclingActivities = cyclingActivities.filter(
     (activity) => new Date(activity.startTimeLocal) >= recentCutoff,
   )
@@ -72,6 +93,12 @@ function Profile({ summary, activities, cyclingActivities = [] }) {
     (sum, activity) => sum + (Number(activity.km) || 0),
     0,
   )
+  const recentCyclingSpeeds = recentCyclingActivities
+    .map(cyclingSpeedKmh)
+    .filter(Number.isFinite)
+  const recentAverageCyclingSpeed = recentCyclingSpeeds.length > 0
+    ? recentCyclingSpeeds.reduce((sum, speed) => sum + speed, 0) / recentCyclingSpeeds.length
+    : null
 
   return (
     <div className="page-stack">
@@ -95,7 +122,7 @@ function Profile({ summary, activities, cyclingActivities = [] }) {
           <div className="chart" aria-label="Grafico delle distanze delle ultime dieci corse">
             <ChartContainer>
               <BarChart data={chartData} margin={{ top: 12, right: 4, left: -20, bottom: 0 }}>
-                <CartesianGrid vertical={false} stroke="#e7e9e5" />
+                <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
                 <XAxis
                   dataKey="startTimeLocal"
                   tickFormatter={(value) => formatDate(value, 'short')}
@@ -152,23 +179,26 @@ function Profile({ summary, activities, cyclingActivities = [] }) {
             sport="running"
             label="Corse registrate"
             value={totalActivities.toLocaleString('it-IT')}
+            detail={`Tempo totale ${formatDuration(runningTotals.duration)}`}
           />
           <MetricCard
             sport="running"
             label="Distanza totale"
             value={formatDistance(totalDistance)}
+            detail={`Dislivello totale ${formatElevation(runningTotals.elevation)}`}
           />
           <MetricCard
             sport="running"
             label="Ultimi 7 giorni"
             value={formatDistance(last7DaysDistance)}
+            detail={`${recentRunningActivities.length} ${recentRunningActivities.length === 1 ? 'corsa' : 'corse'} · media ${formatPace(recentRunningPace)}`}
           />
           <MetricCard
             sport="running"
             label="Ultima corsa"
             value={latestActivity ? formatDistance(latestActivity.km) : '—'}
             detail={latestActivity
-              ? formatDate(latestActivity.startTimeLocal, 'long')
+              ? `${formatDate(latestActivity.startTimeLocal, 'long')} · ${formatPace(paceMinutes(latestActivity))}`
               : 'Nessuna corsa registrata'}
           />
         </div>
@@ -196,7 +226,7 @@ function Profile({ summary, activities, cyclingActivities = [] }) {
             sport="cycling"
             label="Ultimi 7 giorni"
             value={formatDistance(recentCyclingDistance)}
-            detail={`${recentCyclingActivities.length} ${recentCyclingActivities.length === 1 ? 'uscita' : 'uscite'} · media ${formatSpeed(averageCyclingSpeed)}`}
+            detail={`${recentCyclingActivities.length} ${recentCyclingActivities.length === 1 ? 'uscita' : 'uscite'} · media ${formatSpeed(recentAverageCyclingSpeed)}`}
           />
           <MetricCard
             sport="cycling"

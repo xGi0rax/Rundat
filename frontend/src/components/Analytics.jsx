@@ -407,7 +407,7 @@ function MetricModal({ activities, metric, onClose }) {
           ) : (
             <ChartContainer>
               <LineChart data={data} margin={{ top: 22, right: 22, left: 4, bottom: 4 }}>
-                <CartesianGrid vertical={false} stroke="#e1e4df" />
+                <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
                 <XAxis
                   dataKey="date"
                   ticks={visibleMonthTicks}
@@ -812,7 +812,7 @@ function Analytics({ activities }) {
                   if (point) setSelectedVolumeKey(point.date)
                 }}
               >
-                <CartesianGrid vertical={false} stroke="#d8d9d6" />
+                <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
                 <XAxis
                   dataKey="date"
                   tickFormatter={volumeTickFormatter}
