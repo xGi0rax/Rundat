@@ -10,19 +10,15 @@ import {
 } from './services/api.js'
 import { activitiesOfType } from './domain/activityAnalysis.js'
 
-const Activities = lazy(() => import('./components/Activities.jsx'))
 const Analytics = lazy(() => import('./components/Analytics.jsx'))
-const Cycling = lazy(() => import('./components/Cycling.jsx'))
-const Dashboard = lazy(() => import('./components/Dashboard.jsx'))
 const GeneralDashboard = lazy(() => import('./components/GeneralDashboard.jsx'))
 const Profile = lazy(() => import('./components/Profile.jsx'))
+const Sports = lazy(() => import('./components/Sports.jsx'))
 const Trends = lazy(() => import('./components/Trends.jsx'))
 
 const navigationItems = [
   { href: '#dashboard', view: 'dashboard', label: 'Dashboard generale', icon: 'dashboard' },
-  { href: '#running', view: 'running', label: 'Corsa', icon: 'running' },
-  { href: '#bici', view: 'cycling', label: 'Bici', icon: 'cycling' },
-  { href: '#activities', view: 'activities', label: 'Archivio attività', icon: 'archive' },
+  { href: '#sport', view: 'sports', label: 'Corsa e bici', icon: 'running' },
   { href: '#analytics', view: 'analytics', label: 'Analisi corsa', icon: 'analytics' },
   { href: '#trends', view: 'trends', label: 'Trend corsa', icon: 'trends' },
   { href: '#profilo', view: 'profile', label: 'Profilo', icon: 'profile' },
@@ -53,13 +49,6 @@ function MenuIcon({ type }) {
         <path d="m5.5 17.5 3.2-8h3.8l3 8h-10Z" />
         <path d="m12.5 9.5 2.2-3h2.8" />
         <path d="M7.5 6.5h3" />
-      </>
-    ),
-    archive: (
-      <>
-        <rect x="3" y="4" width="18" height="4" rx="1.5" />
-        <path d="M5 8v11.5A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V8" />
-        <path d="M9 12h6" />
       </>
     ),
     analytics: (
@@ -103,17 +92,29 @@ function MenuIcon({ type }) {
 }
 
 function currentView() {
-  if (window.location.hash === '#running') return 'running'
-  if (window.location.hash === '#cycling' || window.location.hash === '#bici') return 'cycling'
-  if (window.location.hash === '#activities') return 'activities'
+  if (
+    window.location.hash.startsWith('#sport')
+    || window.location.hash === '#running'
+    || window.location.hash === '#cycling'
+    || window.location.hash === '#bici'
+  ) return 'sports'
   if (window.location.hash === '#analytics') return 'analytics'
   if (window.location.hash === '#trends') return 'trends'
   if (window.location.hash === '#profilo' || window.location.hash === '#profile') return 'profile'
   return 'dashboard'
 }
 
+function currentSport() {
+  return (
+    window.location.hash === '#cycling'
+    || window.location.hash === '#bici'
+    || window.location.hash === '#sport/bici'
+  ) ? 'cycling' : 'running'
+}
+
 function App() {
   const [view, setView] = useState(currentView)
+  const [sport, setSport] = useState(currentSport)
   const [data, setData] = useState({ dashboard: null, activities: [], recordHistory: null })
   const [status, setStatus] = useState('checking')
   const [error, setError] = useState('')
@@ -154,7 +155,10 @@ function App() {
   }, [loadData])
 
   useEffect(() => {
-    const handleHashChange = () => setView(currentView())
+    const handleHashChange = () => {
+      setView(currentView())
+      setSport(currentSport())
+    }
     window.addEventListener('hashchange', handleHashChange)
     if (!window.location.hash) window.history.replaceState(null, '', '#dashboard')
     return () => window.removeEventListener('hashchange', handleHashChange)
@@ -246,6 +250,15 @@ function App() {
     loadData()
   }
 
+  const selectSport = (nextSport) => {
+    setSport(nextSport)
+    window.history.replaceState(
+      null,
+      '',
+      nextSport === 'cycling' ? '#sport/bici' : '#sport/corsa',
+    )
+  }
+
   return (
     <div className="app-shell">
       <header className="site-header">
@@ -281,16 +294,12 @@ function App() {
                 onSync={syncGarmin}
               />
             )}
-            {view === 'running' && (
-              <Dashboard
-                activities={runningActivities}
-                syncState={syncState}
-                onSync={syncGarmin}
-              />
-            )}
-            {view === 'cycling' && (
-              <Cycling
-                activities={cyclingActivities}
+            {view === 'sports' && (
+              <Sports
+                sport={sport}
+                onSportChange={selectSport}
+                runningActivities={runningActivities}
+                cyclingActivities={cyclingActivities}
                 syncState={syncState}
                 onSync={syncGarmin}
               />
@@ -302,7 +311,6 @@ function App() {
                 cyclingActivities={cyclingActivities}
               />
             )}
-            {view === 'activities' && <Activities activities={data.activities} />}
             {view === 'analytics' && <Analytics activities={runningActivities} />}
             {view === 'trends' && (
               <Trends activities={runningActivities} recordHistory={data.recordHistory ?? []} />

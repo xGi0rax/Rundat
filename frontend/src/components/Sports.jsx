@@ -1,0 +1,61 @@
+import Cycling from './Cycling.jsx'
+import Dashboard from './Dashboard.jsx'
+
+const sportOptions = [
+  {
+    value: 'running',
+    label: 'Corsa',
+    description: 'Passo, prestazioni e analisi delle corse',
+  },
+  {
+    value: 'cycling',
+    label: 'Bici',
+    description: 'Velocità, efficienza e analisi delle uscite',
+  },
+]
+
+function Sports({
+  sport,
+  onSportChange,
+  runningActivities,
+  cyclingActivities,
+  syncState,
+  onSync,
+}) {
+  return (
+    <div className="sports-page">
+      <section className="sport-switcher" aria-label="Seleziona la disciplina">
+        <div className="sport-switcher-copy">
+          <span>Disciplina</span>
+          <strong>Scegli quali dati visualizzare</strong>
+        </div>
+        <div className="sport-switcher-options" role="group" aria-label="Disciplina visualizzata">
+          {sportOptions.map((option) => {
+            const isActive = sport === option.value
+
+            return (
+              <button
+                key={option.value}
+                type="button"
+                className={isActive ? 'sport-switcher-button active' : 'sport-switcher-button'}
+                aria-pressed={isActive}
+                onClick={() => onSportChange(option.value)}
+              >
+                <span>{option.label}</span>
+                <small>{option.description}</small>
+              </button>
+            )
+          })}
+        </div>
+      </section>
+
+      {sport === 'cycling' ? (
+        <Cycling activities={cyclingActivities} syncState={syncState} onSync={onSync} />
+      ) : (
+        <Dashboard activities={runningActivities} syncState={syncState} onSync={onSync} />
+      )}
+    </div>
+  )
+}
+
+export default Sports

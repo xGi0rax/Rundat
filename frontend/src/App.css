@@ -99,14 +99,36 @@
   }
 
   .site-header {
-    inset: auto 0 0;
-    width: 100%;
-    min-height: calc(64px + env(safe-area-inset-bottom, 0px));
+    inset: auto 12px calc(12px + env(safe-area-inset-bottom, 0px)) 12px;
+    width: auto;
+    min-height: 70px;
     justify-content: center;
-    padding: 5px 8px env(safe-area-inset-bottom, 0px);
-    border-top: 1px solid rgba(223, 228, 220, 0.94);
-    border-right: 0;
-    background: rgba(250, 251, 248, 0.96);
+    padding: 6px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.78);
+    border-radius: 24px;
+    background:
+      linear-gradient(145deg, rgba(255, 255, 255, 0.78), rgba(239, 244, 237, 0.58));
+    box-shadow:
+      0 16px 40px rgba(23, 32, 25, 0.18),
+      0 4px 14px rgba(23, 32, 25, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.92),
+      inset 0 -1px 0 rgba(49, 94, 59, 0.08);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    backdrop-filter: blur(24px) saturate(180%);
+    isolation: isolate;
+  }
+
+  .site-header::before {
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    border-radius: inherit;
+    background:
+      radial-gradient(circle at 18% -20%, rgba(255, 255, 255, 0.95), transparent 42%),
+      radial-gradient(circle at 82% 125%, rgba(98, 143, 108, 0.18), transparent 42%);
+    content: '';
+    pointer-events: none;
   }
 
   .brand {
@@ -114,6 +136,8 @@
   }
 
   .main-nav {
+    position: relative;
+    z-index: 1;
     width: 100%;
     max-width: 620px;
     flex-direction: row;
@@ -126,20 +150,48 @@
     min-width: 0;
     flex: 1;
     flex-direction: column;
-    gap: 2px;
+    gap: 3px;
     justify-content: center;
-    min-height: 54px;
-    padding: 5px 2px;
-    border-radius: 10px;
+    min-height: 58px;
+    padding: 6px 3px;
+    border: 1px solid transparent;
+    border-radius: 18px;
+    color: rgba(67, 78, 69, 0.82);
     font-size: 0.64rem;
     line-height: 1;
     text-align: center;
+    transition:
+      color 180ms ease,
+      background 180ms ease,
+      border-color 180ms ease,
+      box-shadow 180ms ease,
+      transform 120ms ease;
+  }
+
+  .main-nav a:hover {
+    color: var(--ink);
+  }
+
+  .main-nav a:active {
+    transform: scale(0.96);
+  }
+
+  .main-nav a[aria-current="page"] {
+    border-color: rgba(255, 255, 255, 0.72);
+    color: var(--accent-dark);
+    background:
+      linear-gradient(145deg, rgba(255, 255, 255, 0.88), rgba(225, 237, 224, 0.68));
+    box-shadow:
+      0 6px 16px rgba(41, 71, 47, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.96),
+      inset 0 -1px 0 rgba(49, 94, 59, 0.08);
   }
 
   .nav-icon {
     width: 23px;
     height: 23px;
     flex-basis: 23px;
+    transition: background 180ms ease, box-shadow 180ms ease, transform 180ms ease;
   }
 
   .nav-icon svg {
@@ -147,14 +199,101 @@
     height: 21px;
   }
 
+  .main-nav a[aria-current="page"] .nav-icon {
+    background: rgba(49, 94, 59, 0.1);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    transform: translateY(-1px);
+  }
+
   #main-content {
-    padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(122px + env(safe-area-inset-bottom, 0px));
   }
 }
 
 .page-stack {
   display: grid;
   gap: 26px;
+}
+
+.sports-page {
+  display: grid;
+  gap: 26px;
+}
+
+.sport-switcher {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.sport-switcher-copy {
+  display: grid;
+  gap: 3px;
+  padding: 0 8px;
+}
+
+.sport-switcher-copy span {
+  color: var(--accent);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.sport-switcher-copy strong {
+  color: var(--ink);
+  font-size: 0.92rem;
+}
+
+.sport-switcher-options {
+  display: grid;
+  width: min(100%, 620px);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.sport-switcher-button {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 11px 14px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  color: var(--muted);
+  background: var(--surface-soft);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 160ms ease, color 160ms ease, background 160ms ease;
+}
+
+.sport-switcher-button:hover {
+  border-color: #c9d4c6;
+  color: var(--ink);
+}
+
+.sport-switcher-button.active {
+  border-color: #b9c8b5;
+  color: var(--accent-dark);
+  background: var(--accent-soft);
+}
+
+.sport-switcher-button span {
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.sport-switcher-button small {
+  overflow: hidden;
+  font-size: 0.7rem;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .page-heading {
@@ -2757,6 +2896,33 @@ tbody tr:hover {
 }
 
 @media (max-width: 640px) {
+  .sports-page {
+    gap: 16px;
+  }
+
+  .sport-switcher {
+    display: grid;
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .sport-switcher-copy {
+    padding: 2px 4px;
+  }
+
+  .sport-switcher-options {
+    width: 100%;
+  }
+
+  .sport-switcher-button {
+    padding: 11px;
+    text-align: center;
+  }
+
+  .sport-switcher-button small {
+    display: none;
+  }
+
   .latest-route-card {
     min-height: 285px;
   }
@@ -2798,7 +2964,7 @@ tbody tr:hover {
   #main-content {
     width: min(100% - 28px, 1200px);
     padding-top: 28px;
-    padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(122px + env(safe-area-inset-bottom, 0px));
   }
 
   .page-stack {
