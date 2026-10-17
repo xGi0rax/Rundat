@@ -25,7 +25,7 @@ from services.activity_service import (
     get_personal_best_history,
     get_personal_bests,
 )
-from services.database import initialize_database
+from services.database import initialize_database, connect
 from services.sync_service import list_sync_runs, sync_csv, sync_garmin
 
 LOGGER = logging.getLogger(__name__)
@@ -174,3 +174,18 @@ def sync_garmin_endpoint():
 )
 def sync_history_endpoint(limit: int = Query(default=20, ge=1, le=100)):
     return list_sync_runs(limit)
+
+
+@app.get("/api/cron/keep-alive", dependencies=[],)
+def keep_alive():
+    try:
+        # Esempio generico basato sulla tua struttura: esegui un SELECT 1 o leggi 1 riga
+        with connect() as conn:
+            conn.execute("SELECT 1;")
+        return {"status": "ok", "db": "awake"}
+    except Exception as error:
+        LOGGER.exception("Keep-alive ping failed")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Ping al database fallito: {str(error)}"
+        ) from error

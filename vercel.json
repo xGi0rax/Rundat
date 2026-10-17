@@ -21,5 +21,11 @@
       "maxDuration": 300,
       "excludeFiles": "{frontend/**,backend/tests/**,scripts/**,supabase/**,**/*.csv,**/*.db,**/__pycache__/**}"
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/keep-alive",
+      "schedule": "0 8 * * *"
+    }
+  ]
 }
