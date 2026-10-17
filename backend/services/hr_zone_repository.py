@@ -12,6 +12,7 @@ def replace_activity_hr_zones(
     raw_response: Any,
     db_path: Path | None = None,
 ) -> None:
+    """Gestisce l'operazione replace activity hr zones."""
     synced_at = datetime.now().isoformat(timespec="seconds")
     raw_data = json.dumps(
         raw_response,
@@ -65,6 +66,7 @@ def mark_activity_hr_zones_failed(
     error_message: str,
     db_path: Path | None = None,
 ) -> None:
+    """Gestisce l'operazione mark activity hr zones failed."""
     with connect(db_path) as connection:
         connection.execute(
             """
@@ -88,6 +90,7 @@ def activity_ids_missing_hr_zones(
     limit: int = 20,
     db_path: Path | None = None,
 ) -> list[int]:
+    """Gestisce l'operazione activity ids missing hr zones."""
     with connect(db_path) as connection:
         rows = connection.execute(
             """
@@ -110,6 +113,7 @@ def activity_ids_missing_hr_zones(
 def list_hr_zones_by_activity(
     db_path: Path | None = None,
 ) -> dict[int, list[dict[str, Any]]]:
+    """Elenca l'operazione list hr zones by activity."""
     with connect(db_path) as connection:
         rows = connection.execute(
             """

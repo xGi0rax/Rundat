@@ -16,12 +16,11 @@ TABLES = {
     "activities": ("activity_id",),
     "activity_hr_zones": ("activity_id", "zone_number"),
     "activity_hr_zone_sync": ("activity_id",),
-    "personal_records": ("record_key",),
-    "personal_record_history": ("record_key", "activity_id", "duration"),
 }
 
 
 def migrate(source_path: Path, token_directory: Path | None) -> None:
+    """Migra l'operazione migrate."""
     if not os.getenv("DATABASE_URL"):
         raise SystemExit("Imposta DATABASE_URL prima di eseguire la migrazione.")
     if not source_path.exists():
@@ -63,6 +62,7 @@ def migrate(source_path: Path, token_directory: Path | None) -> None:
 
 
 def main() -> None:
+    """Avvia l'operazione main."""
     parser = argparse.ArgumentParser(
         description="Migra i dati locali Rundat da SQLite a Supabase PostgreSQL."
     )

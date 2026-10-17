@@ -5,7 +5,8 @@ riunire il carico nelle zone cardiache e analizzare volume, passo, record e tren
 
 ## Architettura
 
-- `backend/main.py`: API FastAPI e lifecycle applicativo;
+- `backend/main.py`: bootstrap FastAPI, middleware e lifecycle applicativo;
+- `backend/api/routes.py`: endpoint HTTP, autenticazione e gestione degli errori API;
 - `backend/domain/`: regole pure di normalizzazione e calcolo;
 - `backend/services/`: casi d'uso, sincronizzazione e repository SQLite;
 - `backend/infrastructure/`: integrazione Garmin Connect;
@@ -74,12 +75,15 @@ npm run check
 
 - `GET /api/health`
 - `GET /api/activities`
-- `GET /api/pbs`
-- `GET /api/pbs/history`
+- `GET /api/race-predictions`
 - `GET /api/dashboard`
 - `POST /api/sync/csv`
 - `POST /api/sync/garmin`
 - `GET /api/sync/history`
+
+La sincronizzazione Garmin importa anche lo storico delle previsioni gara
+giornaliere e mensili tramite l'endpoint ufficiale Garmin. La card Trend usa
+questi valori già calcolati da Garmin e non ricalcola localmente i tempi.
 
 ## Nota di sicurezza
 

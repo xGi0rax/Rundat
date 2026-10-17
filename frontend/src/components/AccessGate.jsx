@@ -1,8 +1,10 @@
 import { useState } from 'react'
 
+// Gestisce access gate.
 function AccessGate({ message, onSubmit }) {
   const [token, setToken] = useState('')
 
+  // Gestisce submit.
   const submit = (event) => {
     event.preventDefault()
     const value = token.trim()

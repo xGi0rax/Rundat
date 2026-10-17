@@ -18,22 +18,27 @@ from schemas import ActivitySummary, DashboardSummary
 
 class PaceTests(unittest.TestCase):
     def test_calculates_pace_from_metres_per_second(self):
+        """Verifica l'operazione test calculates pace from metres per second."""
         self.assertEqual(data_processor.calculate_pace(1000 / 300), "5:00")
 
     def test_rounding_carries_seconds_into_next_minute(self):
+        """Verifica l'operazione test rounding carries seconds into next minute."""
         self.assertEqual(data_processor.calculate_pace(1000 / 299.6), "5:00")
 
     def test_returns_none_for_missing_or_non_positive_speed(self):
+        """Verifica l'operazione test returns none for missing or non positive speed."""
         for speed in (None, 0, -1, math.nan):
             with self.subTest(speed=speed):
                 self.assertIsNone(data_processor.calculate_pace(speed))
 
     def test_calculates_decimal_pace(self):
+        """Verifica l'operazione test calculates decimal pace."""
         self.assertEqual(data_processor.calc_pace_decimal(1000 / 330), 5.5)
 
 
 class DashboardTests(unittest.TestCase):
     def setUp(self):
+        """Gestisce l'operazione setUp."""
         self.temp_dir = tempfile.TemporaryDirectory()
         self.csv_path = Path(self.temp_dir.name) / "activities.csv"
         pd.DataFrame(
@@ -66,9 +71,11 @@ class DashboardTests(unittest.TestCase):
         ).to_csv(self.csv_path, index=False)
 
     def tearDown(self):
+        """Gestisce l'operazione tearDown."""
         self.temp_dir.cleanup()
 
     def test_dashboard_aggregates_and_validates_against_api_model(self):
+        """Verifica l'operazione test dashboard aggregates and validates against api model."""
         with patch.object(data_processor, "CSV_FILE", self.csv_path):
             result = data_processor.get_dashboard_summary(datetime(2026, 7, 22, 12, 0))
 
@@ -80,6 +87,7 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(dashboard.latest_activity.activity_id, 2)
 
     def test_activity_contract_validates_real_csv_shape(self):
+        """Verifica l'operazione test activity contract validates real csv shape."""
         with patch.object(data_processor, "CSV_FILE", self.csv_path):
             activities = data_processor.get_activity_summaries()
 

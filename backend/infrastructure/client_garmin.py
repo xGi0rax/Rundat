@@ -35,6 +35,7 @@ token_dir = str(
 
 
 def get_client():
+    """Restituisce l'operazione get client."""
     os.makedirs(token_dir, exist_ok=True)
     if uses_postgres():
         try:
@@ -75,5 +76,6 @@ def get_client():
 
 
 def _persist_remote_tokens() -> None:
+    """Gestisce l'operazione persist remote tokens."""
     if uses_postgres():
         save_token_directory(Path(token_dir))

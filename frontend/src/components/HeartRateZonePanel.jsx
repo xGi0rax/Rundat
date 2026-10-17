@@ -5,6 +5,7 @@ import {
   median,
 } from '../domain/dashboardAnalysis.js'
 
+// Gestisce heart rate zone panel.
 function HeartRateZonePanel({
   latest,
   historical,

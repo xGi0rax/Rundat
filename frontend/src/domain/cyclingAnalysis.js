@@ -1,5 +1,6 @@
 import { distanceKm, heartRate, median } from './dashboardAnalysis.js'
 
+// Gestisce cycling speed kmh.
 export function cyclingSpeedKmh(activity) {
   const averageSpeed = Number(activity?.averageSpeed)
   if (Number.isFinite(averageSpeed) && averageSpeed > 0) return averageSpeed * 3.6
@@ -11,6 +12,7 @@ export function cyclingSpeedKmh(activity) {
     : null
 }
 
+// Gestisce elevation per km.
 export function elevationPerKm(activity) {
   const distance = distanceKm(activity)
   const elevation = Number(activity?.elevationGain)
@@ -19,17 +21,20 @@ export function elevationPerKm(activity) {
     : null
 }
 
+// Gestisce cycling efficiency.
 export function cyclingEfficiency(activity) {
   const speed = cyclingSpeedKmh(activity)
   const averageHeartRate = heartRate(activity)
   return speed && averageHeartRate ? (speed / averageHeartRate) * 100 : null
 }
 
+// Gestisce valid date.
 function validDate(activity) {
   const date = new Date(activity?.startTimeLocal)
   return Number.isNaN(date.getTime()) ? null : date
 }
 
+// Gestisce analyze cycling activities.
 export function analyzeCyclingActivities(activities) {
   const ordered = activities
     .filter((activity) => validDate(activity))

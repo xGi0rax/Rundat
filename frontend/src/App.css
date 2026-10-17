@@ -2022,41 +2022,6 @@ button.calendar-day:focus-visible {
   font-size: 0.72rem;
 }
 
-.records-list {
-  margin: 8px 0 0;
-  padding: 0 26px 18px;
-  list-style: none;
-}
-
-.records-list li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 16px 0;
-  border-top: 1px solid var(--line);
-}
-
-.records-list li > div > strong,
-.records-list li > div > span {
-  display: block;
-}
-
-.records-list li > div > strong {
-  margin-bottom: 4px;
-  color: var(--ink);
-  font-size: 0.9rem;
-}
-
-.records-list li > div > span {
-  color: var(--muted);
-  font-size: 0.7rem;
-}
-
-.record-result {
-  text-align: right;
-}
-
 .inline-empty {
   margin: 10px 26px 26px;
   color: var(--muted);
@@ -2622,7 +2587,16 @@ button.calendar-day:focus-visible {
 }
 
 .trend-period-control {
+  display: flex;
+  align-items: center;
   flex-wrap: wrap;
+}
+
+.period-control-label {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  white-space: nowrap;
 }
 
 .trends-grid {
@@ -2683,7 +2657,7 @@ button.calendar-day:focus-visible {
 }
 
 .trend-card .panel-heading p:last-child,
-.record-trend-heading p:last-child {
+.prediction-trend-heading p:last-child {
   margin: 7px 0 0;
   color: var(--muted);
   font-size: 0.78rem;
@@ -2708,39 +2682,40 @@ button.calendar-day:focus-visible {
   font-size: 0.82rem;
 }
 
-.record-trend-panel {
+.prediction-trend-panel {
   overflow: hidden;
 }
 
-.record-trend-heading {
+.prediction-trend-heading {
   align-items: flex-start;
 }
 
-.record-trend-selector {
+.prediction-legend {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 6px;
-}
-
-.record-trend-selector button {
-  padding: 8px 11px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
+  gap: 8px 12px;
+  max-width: 380px;
+  padding-top: 2px;
   color: var(--muted);
-  background: var(--surface-soft);
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 800;
-  cursor: pointer;
 }
 
-.record-trend-selector button.active {
-  border-color: #b9c8b5;
-  color: var(--accent-dark);
-  background: var(--accent-soft);
+.prediction-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
 }
 
-.record-trend-chart {
+.prediction-legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.prediction-trend-chart {
   width: 100%;
   min-width: 0;
   max-width: 100%;
@@ -2749,7 +2724,7 @@ button.calendar-day:focus-visible {
   font-size: 0.72rem;
 }
 
-.record-trend-empty {
+.prediction-trend-empty {
   display: grid;
   min-height: 260px;
   place-content: center;
@@ -2758,11 +2733,11 @@ button.calendar-day:focus-visible {
   text-align: center;
 }
 
-.record-trend-empty strong {
+.prediction-trend-empty strong {
   color: var(--ink);
 }
 
-.record-trend-empty p {
+.prediction-trend-empty p {
   margin: 0;
   color: var(--muted);
   font-size: 0.82rem;
@@ -3551,16 +3526,17 @@ tbody tr:hover {
     padding-inline: 10px;
   }
 
-  .record-trend-heading {
+  .prediction-trend-heading {
     display: grid;
     gap: 16px;
   }
 
-  .record-trend-selector {
+  .prediction-legend {
     justify-content: flex-start;
+    max-width: none;
   }
 
-  .record-trend-chart {
+  .prediction-trend-chart {
     height: 300px;
     padding-inline: 10px;
   }
@@ -3600,10 +3576,6 @@ tbody tr:hover {
   .chart {
     height: 280px;
     padding-inline: 8px;
-  }
-
-  .records-list {
-    padding-inline: 18px;
   }
 
   .activities-panel {

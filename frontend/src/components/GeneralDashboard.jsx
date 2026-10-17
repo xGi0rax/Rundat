@@ -13,6 +13,7 @@ import { analyzeCombinedActivities } from '../domain/activityAnalysis.js'
 import { HEART_RATE_ZONE_COLORS } from '../domain/dashboardAnalysis.js'
 import { formatDate, formatDistance, formatDuration } from '../utils/formatters.js'
 
+// Gestisce history label.
 function historyLabel(value, granularity) {
   const date = new Date(`${value}T00:00:00`)
   if (granularity === 'year') return String(date.getFullYear())
@@ -24,6 +25,7 @@ function historyLabel(value, granularity) {
   return formatDate(date, 'short')
 }
 
+// Gestisce history tooltip label.
 function historyTooltipLabel(value, payload, granularity) {
   const point = payload?.[0]?.payload
   if (!point) return historyLabel(value, granularity)
@@ -31,6 +33,7 @@ function historyTooltipLabel(value, payload, granularity) {
   return `${formatDate(point.startDate)} – ${formatDate(point.endDate)}`
 }
 
+// Gestisce general dashboard.
 function GeneralDashboard({ activities, syncState, onSync }) {
   const [period, setPeriod] = useState({ amount: 1, unit: 'week' })
   const analysis = useMemo(

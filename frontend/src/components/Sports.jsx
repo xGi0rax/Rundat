@@ -6,13 +6,12 @@ const sportOptions = [
   { value: 'cycling', label: 'Bici' },
 ]
 
+// Gestisce sports.
 function Sports({
   sport,
   onSportChange,
   runningActivities,
   cyclingActivities,
-  syncState,
-  onSync,
 }) {
   return (
     <div className="sports-page">
@@ -41,9 +40,9 @@ function Sports({
       </section>
 
       {sport === 'cycling' ? (
-        <Cycling activities={cyclingActivities} syncState={syncState} onSync={onSync} />
+        <Cycling activities={cyclingActivities} />
       ) : (
-        <Dashboard activities={runningActivities} syncState={syncState} onSync={onSync} />
+        <Dashboard activities={runningActivities} />
       )}
     </div>
   )

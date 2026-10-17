@@ -4,21 +4,16 @@ import json
 from datetime import datetime
 from typing import Any
 
-GARMIN_RUNNING_RECORD_TYPES = {
-    1: ("1k", 1.0),
-    3: ("5k", 5.0),
-    4: ("10k", 10.0),
-    5: ("Half Marathon", 21.0975),
-    6: ("Full Marathon", 42.195),
-}
 SUPPORTED_ACTIVITY_TYPES = {"running", "cycling"}
 
 
 def _encode_raw_data(data: dict[str, Any]) -> str:
+    """Gestisce l'operazione encode raw data."""
     return json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
 
 
 def clean_value(value: Any) -> Any:
+    """Gestisce l'operazione clean value."""
     if value is None:
         return None
     if hasattr(value, "item"):
@@ -32,6 +27,7 @@ def clean_value(value: Any) -> Any:
 
 
 def float_or_none(value: Any) -> float | None:
+    """Gestisce l'operazione float or none."""
     value = clean_value(value)
     if value is None:
         return None
@@ -43,6 +39,7 @@ def float_or_none(value: Any) -> float | None:
 
 
 def normalize_activity_type(raw: dict[str, Any]) -> str:
+    """Normalizza l'operazione normalize activity type."""
     activity_type = clean_value(raw.get("activityType"))
     if isinstance(activity_type, dict):
         value = activity_type.get("typeKey") or activity_type.get("parentTypeId")
@@ -58,6 +55,7 @@ def normalize_activity_type(raw: dict[str, Any]) -> str:
 
 
 def normalize_activity(raw: dict[str, Any]) -> dict[str, Any] | None:
+    """Normalizza l'operazione normalize activity."""
     activity_id = clean_value(raw.get("activityId"))
     start_time = clean_value(raw.get("startTimeLocal"))
     distance = float_or_none(raw.get("distance"))
@@ -102,6 +100,7 @@ def normalize_hr_zones(raw_response: Any) -> list[dict[str, Any]]:
     zones: dict[int, dict[str, Any]] = {}
 
     def add_zone(zone_value: Any, seconds_value: Any, raw: dict[str, Any]) -> None:
+        """Aggiunge l'operazione add zone."""
         seconds = float_or_none(seconds_value)
         try:
             zone_number = int(zone_value)
@@ -129,6 +128,7 @@ def normalize_hr_zones(raw_response: Any) -> list[dict[str, Any]]:
         }
 
     def visit(value: Any) -> None:
+        """Visita l'operazione visit."""
         if isinstance(value, list):
             for item in value:
                 visit(item)
@@ -171,88 +171,9 @@ def normalize_hr_zones(raw_response: Any) -> list[dict[str, Any]]:
 
 
 def _first_float(raw: dict[str, Any], *keys: str) -> float | None:
+    """Gestisce l'operazione first float."""
     for key in keys:
         value = float_or_none(raw.get(key))
         if value is not None:
             return value
-    return None
-
-
-def normalize_personal_records(raw_response: Any) -> list[dict[str, Any]]:
-    normalized = []
-    for raw in _find_personal_records(raw_response):
-        type_id = clean_value(raw.get("typeId"))
-        try:
-            normalized_type_id = int(type_id)
-        except (TypeError, ValueError):
-            continue
-        record_definition = GARMIN_RUNNING_RECORD_TYPES.get(normalized_type_id)
-        if record_definition is None:
-            continue
-
-        duration = float_or_none(raw.get("value"))
-        record_date = _personal_record_date(raw)
-        if duration is None or duration < 0 or record_date is None:
-            continue
-
-        record_key, distance_km = record_definition
-        activity_id = clean_value(raw.get("activityId"))
-        try:
-            normalized_activity_id = int(activity_id) if activity_id is not None else None
-        except (TypeError, ValueError):
-            normalized_activity_id = None
-        cleaned_raw = {key: clean_value(value) for key, value in raw.items()}
-        normalized.append(
-            {
-                "record_key": record_key,
-                "type_id": normalized_type_id,
-                "activity_id": normalized_activity_id,
-                "distance_km": distance_km,
-                "duration": duration,
-                "record_date": record_date,
-                "raw_data": _encode_raw_data(cleaned_raw),
-            }
-        )
-    return normalized
-
-
-def _find_personal_records(value: Any) -> list[dict[str, Any]]:
-    if isinstance(value, list):
-        return [record for item in value for record in _find_personal_records(item)]
-    if not isinstance(value, dict):
-        return []
-    if "typeId" in value and "value" in value:
-        return [value]
-    return [record for item in value.values() for record in _find_personal_records(item)]
-
-
-def _personal_record_date(raw: dict[str, Any]) -> str | None:
-    for field in (
-        "activityStartDateTimeLocalFormatted",
-        "actStartDateTimeInGMTFormatted",
-    ):
-        value = clean_value(raw.get(field))
-        if value and len(str(value)) >= 10:
-            candidate = str(value)[:10]
-            try:
-                return datetime.fromisoformat(candidate).date().isoformat()
-            except ValueError:
-                pass
-
-    for field in (
-        "activityStartDateTimeLocal",
-        "activityStartDateTimeInGMT",
-        "prStartTimeLocal",
-        "prStartTimeGmt",
-    ):
-        value = clean_value(raw.get(field))
-        if value is None:
-            continue
-        try:
-            timestamp = float(value)
-            if timestamp > 100_000_000_000:
-                timestamp /= 1000
-            return datetime.fromtimestamp(timestamp).date().isoformat()
-        except (OSError, OverflowError, TypeError, ValueError):
-            continue
     return None

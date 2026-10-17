@@ -28,6 +28,7 @@ import { normalizePeriod, periodRange } from '../domain/periods.js'
 
 const weekdayLabels = ['L', 'M', 'M', 'G', 'V', 'S', 'D']
 
+// Gestisce local date key.
 function localDateKey(value) {
   const date = new Date(value)
   const year = date.getFullYear()
@@ -36,6 +37,7 @@ function localDateKey(value) {
   return `${year}-${month}-${day}`
 }
 
+// Gestisce intensity color.
 function intensityColor(intensity) {
   if (!Number.isFinite(intensity)) return '#a9b2aa'
   if (intensity < 65) return HEART_RATE_ZONE_COLORS[0]
@@ -45,10 +47,12 @@ function intensityColor(intensity) {
   return HEART_RATE_ZONE_COLORS[4]
 }
 
+// Gestisce activity detail dialog.
 function ActivityDetailDialog({ activity, onClose }) {
   const pace = paceMinutes(activity)
 
   useEffect(() => {
+    // Gestisce close on escape.
     const closeOnEscape = (event) => {
       if (event.key === 'Escape') onClose()
     }
@@ -102,8 +106,10 @@ function ActivityDetailDialog({ activity, onClose }) {
   )
 }
 
+// Gestisce interactive point.
 function InteractivePoint({ cx, cy, payload, onSelect, latestId, radius = 5 }) {
   const isLatest = payload.activityId === latestId
+  // Gestisce open details.
   const openDetails = () => onSelect(payload.activity)
   return (
     <g
@@ -143,6 +149,7 @@ function InteractivePoint({ cx, cy, payload, onSelect, latestId, radius = 5 }) {
   )
 }
 
+// Gestisce calendar cells.
 function calendarCells(data, range) {
   const activityDays = new Map()
   data.forEach((item) => {
@@ -190,6 +197,7 @@ function calendarCells(data, range) {
   return cells
 }
 
+// Gestisce running visual analysis.
 function RunningVisualAnalysis({ activities, latest }) {
   const [period, setPeriod] = useState({ amount: 1, unit: 'year' })
   const [selectedActivity, setSelectedActivity] = useState(null)

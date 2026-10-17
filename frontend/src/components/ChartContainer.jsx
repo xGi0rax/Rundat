@@ -2,6 +2,7 @@ import { ResponsiveContainer } from 'recharts'
 
 const INITIAL_DIMENSION = { width: 1, height: 1 }
 
+// Gestisce chart container.
 function ChartContainer({ children }) {
   return (
     <ResponsiveContainer

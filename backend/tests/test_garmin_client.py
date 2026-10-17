@@ -13,6 +13,7 @@ from infrastructure import client_garmin
 
 class GarminClientTests(unittest.TestCase):
     def test_fresh_login_does_not_reload_stale_token(self):
+        """Verifica l'operazione test fresh login does not reload stale token."""
         stored_session = MagicMock()
         stored_session.login.side_effect = RuntimeError("stale token")
         fresh_session = MagicMock()
@@ -30,6 +31,7 @@ class GarminClientTests(unittest.TestCase):
         fresh_session.client.dump.assert_called_once_with(temp_dir)
 
     def test_missing_credentials_fail_with_actionable_message(self):
+        """Verifica l'operazione test missing credentials fail with actionable message."""
         stored_session = MagicMock()
         stored_session.login.side_effect = RuntimeError("no saved session")
 

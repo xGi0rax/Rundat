@@ -6,6 +6,7 @@ import {
 } from '../domain/periods.js'
 import { formatDate } from '../utils/formatters.js'
 
+// Gestisce period picker.
 function PeriodPicker({
   value,
   onChange,

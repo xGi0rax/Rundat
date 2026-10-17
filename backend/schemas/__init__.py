@@ -3,8 +3,7 @@ from .models import (
     ActivitySummary,
     DashboardSummary,
     HeartRateZone,
-    PersonalBest,
-    PersonalBestHistory,
+    RacePrediction,
     RoutePoint,
     SyncRun,
 )
@@ -14,8 +13,7 @@ __all__ = [
     "ActivitySummary",
     "DashboardSummary",
     "HeartRateZone",
-    "PersonalBest",
-    "PersonalBestHistory",
+    "RacePrediction",
     "RoutePoint",
     "SyncRun",
 ]

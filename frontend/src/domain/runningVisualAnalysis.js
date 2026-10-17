@@ -5,12 +5,14 @@ import {
   paceMinutes,
 } from './dashboardAnalysis.js'
 
+// Gestisce running efficiency.
 export function runningEfficiency(activity) {
   const pace = paceMinutes(activity)
   const averageHeartRate = heartRate(activity)
   return pace && averageHeartRate ? ((60 / pace) / averageHeartRate) * 100 : null
 }
 
+// Gestisce running training load.
 export function runningTrainingLoad(activity, observedMaxHeartRate) {
   const averageHeartRate = heartRate(activity)
   const durationMinutes = Number(activity?.duration) / 60
@@ -18,6 +20,7 @@ export function runningTrainingLoad(activity, observedMaxHeartRate) {
   return durationMinutes * ((averageHeartRate / observedMaxHeartRate) ** 2)
 }
 
+// Gestisce build running visual data.
 export function buildRunningVisualData(activities) {
   const observedMaxHeartRate = Math.max(
     0,
@@ -52,6 +55,7 @@ export function buildRunningVisualData(activities) {
     .sort((first, second) => first.date - second.date)
 }
 
+// Gestisce add rolling efficiency.
 export function addRollingEfficiency(data, windowSize = 5) {
   return data.map((item, index) => {
     const window = data

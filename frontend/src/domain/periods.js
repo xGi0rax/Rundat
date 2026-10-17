@@ -4,6 +4,7 @@ export const PERIOD_UNITS = [
   { value: 'year', singular: 'Anno', plural: 'Anni' },
 ]
 
+// Gestisce period amount limit.
 export function periodAmountLimit(unit, activities = [], now = new Date()) {
   if (unit !== 'year') return 12
   const years = activities
@@ -14,6 +15,7 @@ export function periodAmountLimit(unit, activities = [], now = new Date()) {
   return Math.max(1, now.getFullYear() - firstYear + 1)
 }
 
+// Gestisce normalize period.
 export function normalizePeriod(period, activities = [], now = new Date()) {
   const unit = PERIOD_UNITS.some((option) => option.value === period?.unit)
     ? period.unit
@@ -23,10 +25,12 @@ export function normalizePeriod(period, activities = [], now = new Date()) {
   return { amount, unit }
 }
 
+// Gestisce days in month.
 function daysInMonth(year, month) {
   return new Date(year, month + 1, 0).getDate()
 }
 
+// Gestisce shift period.
 export function shiftPeriod(date, period, multiplier = 1) {
   const result = new Date(date)
   const amount = Number(period.amount) * multiplier
@@ -46,12 +50,14 @@ export function shiftPeriod(date, period, multiplier = 1) {
   return result
 }
 
+// Gestisce period start.
 export function periodStart(period, now = new Date()) {
   const start = shiftPeriod(now, period, -1)
   start.setHours(0, 0, 0, 0)
   return start
 }
 
+// Gestisce period range.
 export function periodRange(period, offset = 0, now = new Date()) {
   if (offset === 0) return { start: periodStart(period, now), end: new Date(now) }
   const endBoundary = shiftPeriod(now, period, -offset)
@@ -62,6 +68,7 @@ export function periodRange(period, offset = 0, now = new Date()) {
   return { start, end }
 }
 
+// Gestisce period label.
 export function periodLabel(period) {
   const definition = PERIOD_UNITS.find((option) => option.value === period.unit)
     ?? PERIOD_UNITS[0]

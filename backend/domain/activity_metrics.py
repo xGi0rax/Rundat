@@ -3,6 +3,7 @@ from typing import Any
 
 
 def _positive_number(value: Any) -> float | None:
+    """Gestisce l'operazione positive number."""
     try:
         number = float(value)
     except (TypeError, ValueError):

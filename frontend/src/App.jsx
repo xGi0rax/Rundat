@@ -26,6 +26,7 @@ const navigationItems = [
   { href: '#profilo', view: 'profile', label: 'Profilo', mobileLabel: 'Profilo', icon: 'profile' },
 ]
 
+// Gestisce menu icon.
 function MenuIcon({ type }) {
   const icons = {
     dashboard: {
@@ -133,6 +134,7 @@ function MenuIcon({ type }) {
   )
 }
 
+// Gestisce current view.
 function currentView() {
   if (
     window.location.hash.startsWith('#sport')
@@ -146,6 +148,7 @@ function currentView() {
   return 'dashboard'
 }
 
+// Gestisce current sport.
 function currentSport() {
   return (
     window.location.hash === '#cycling'
@@ -154,17 +157,24 @@ function currentSport() {
   ) ? 'cycling' : 'running'
 }
 
+// Gestisce preferred theme.
 function preferredTheme() {
   const storedTheme = window.localStorage.getItem('rundat-theme')
   if (storedTheme === 'light' || storedTheme === 'dark') return storedTheme
   return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 }
 
+// Gestisce app.
 function App() {
   const [view, setView] = useState(currentView)
   const [sport, setSport] = useState(currentSport)
   const [theme, setTheme] = useState(preferredTheme)
-  const [data, setData] = useState({ dashboard: null, activities: [], recordHistory: null })
+  // Stato aggregato caricato dall'API e condiviso tra le viste.
+  const [data, setData] = useState({
+    dashboard: null,
+    activities: [],
+    racePredictions: [],
+  })
   const [status, setStatus] = useState('checking')
   const [error, setError] = useState('')
   const [requestId, setRequestId] = useState(0)
@@ -190,6 +200,7 @@ function App() {
   }, [])
 
   useEffect(() => {
+    // Controller della richiesta health, annullato quando il componente viene smontato.
     const controller = new AbortController()
     fetchJson('/api/health', { signal: controller.signal })
       .then((health) => {
@@ -209,6 +220,7 @@ function App() {
   }, [loadData])
 
   useEffect(() => {
+    // Gestisce handle hash change.
     const handleHashChange = () => {
       setView(currentView())
       setSport(currentSport())
@@ -220,13 +232,16 @@ function App() {
 
   useEffect(() => {
     if (status !== 'loading') return undefined
+    // Controller del caricamento attività, utile per evitare aggiornamenti tardivi.
     const controller = new AbortController()
 
-    fetchJson('/api/activities', { signal: controller.signal })
-      .then((activities) => {
-        setData((current) => ({ ...current, activities }))
-        setStatus('success')
-      })
+    Promise.all([
+      fetchJson('/api/activities', { signal: controller.signal }),
+      fetchJson('/api/race-predictions', { signal: controller.signal }),
+    ]).then(([activities, racePredictions]) => {
+      setData((current) => ({ ...current, activities, racePredictions }))
+      setStatus('success')
+    })
       .catch((reason) => {
         if (reason.name !== 'AbortError') {
           if (reason.status === 401) {
@@ -245,6 +260,7 @@ function App() {
 
   useEffect(() => {
     if (status !== 'success') return undefined
+    // Controller delle richieste dati specifiche della vista corrente.
     const controller = new AbortController()
 
     if (view === 'profile' && data.dashboard == null) {
@@ -257,24 +273,19 @@ function App() {
           }
         })
     }
-    if (view === 'trends' && data.recordHistory == null) {
-      fetchJson('/api/pbs/history', { signal: controller.signal })
-        .then((recordHistory) => setData((current) => ({ ...current, recordHistory })))
-        .catch((reason) => {
-          if (reason.name !== 'AbortError') {
-            setError(reason.message)
-            setStatus('error')
-          }
-        })
-    }
     return () => controller.abort()
-  }, [data.dashboard, data.recordHistory, status, view])
+  }, [data.dashboard, status, view])
 
+  // Gestisce sync garmin.
   const syncGarmin = async () => {
     setSyncState({ status: 'loading', message: 'Sincronizzazione con Garmin in corso…' })
     try {
+      // Riepilogo restituito dal backend con conteggi e zone cardio importate.
       const result = await fetchJson('/api/sync/garmin', { method: 'POST' })
-      const activities = await fetchJson('/api/activities')
+      const [activities, racePredictions] = await Promise.all([
+        fetchJson('/api/activities'),
+        fetchJson('/api/race-predictions'),
+      ])
       const changed = result.insertedCount + result.updatedCount
       const zonesMessage = result.hrZoneCount > 0
         ? ` Zone cardio aggiunte a ${result.hrZoneCount} attività.`
@@ -282,7 +293,7 @@ function App() {
       const message = changed > 0
         ? `${result.insertedCount} nuove, ${result.updatedCount} aggiornate.${zonesMessage}`
         : zonesMessage || 'Tutto aggiornato: nessuna nuova attività o zona cardio.'
-      setData({ dashboard: null, activities, recordHistory: null })
+      setData({ dashboard: null, activities, racePredictions })
       setSyncState({ status: 'success', message })
     } catch (reason) {
       if (reason.status === 401) {
@@ -298,12 +309,14 @@ function App() {
     }
   }
 
+  // Gestisce authenticate.
   const authenticate = (token) => {
     saveAccessToken(token)
     setError('')
     loadData()
   }
 
+  // Gestisce select sport.
   const selectSport = (nextSport) => {
     setSport(nextSport)
     window.history.replaceState(
@@ -387,7 +400,10 @@ function App() {
             )}
             {view === 'analytics' && <Analytics activities={runningActivities} />}
             {view === 'trends' && (
-              <Trends activities={runningActivities} recordHistory={data.recordHistory ?? []} />
+              <Trends
+                activities={runningActivities}
+                racePredictions={data.racePredictions}
+              />
             )}
           </Suspense>
         )}

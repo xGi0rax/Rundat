@@ -5,16 +5,19 @@ export const ACTIVITY_TYPES = {
   cycling: 'cycling',
 }
 
+// Gestisce activity type.
 export function activityType(activity) {
   return activity?.activityType === ACTIVITY_TYPES.cycling
     ? ACTIVITY_TYPES.cycling
     : ACTIVITY_TYPES.running
 }
 
+// Gestisce activities of type.
 export function activitiesOfType(activities, type) {
   return activities.filter((activity) => activityType(activity) === type)
 }
 
+// Gestisce local date key.
 function localDateKey(date) {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -22,6 +25,7 @@ function localDateKey(date) {
   return `${year}-${month}-${day}`
 }
 
+// Gestisce history configuration.
 function historyConfiguration(period) {
   if (period.amount === 1 && period.unit === 'week') {
     return { count: 7, granularity: 'day', evenlySplit: true }
@@ -35,22 +39,32 @@ function historyConfiguration(period) {
   return { count: period.amount, granularity: period.unit, unit: period.unit }
 }
 
+// Gestisce create history buckets.
 function createHistoryBuckets(start, end, period) {
   const configuration = historyConfiguration(period)
-  const boundaries = Array.from({ length: configuration.count + 1 }, (_value, index) => {
-    if (index === 0) return new Date(start)
-    if (index === configuration.count) return new Date(end)
-    if (configuration.evenlySplit) {
-      return new Date(start.getTime() + (((end - start) * index) / configuration.count))
-    }
-    return shiftPeriod(start, { amount: index, unit: configuration.unit })
-  })
+  const boundaries = configuration.granularity === 'day'
+    ? Array.from({ length: configuration.count + 1 }, (_value, index) => {
+        const boundary = new Date(end)
+        boundary.setHours(0, 0, 0, 0)
+        boundary.setDate(boundary.getDate() - (configuration.count - index - 1))
+        return index === configuration.count ? new Date(end) : boundary
+      })
+    : Array.from({ length: configuration.count + 1 }, (_value, index) => {
+        if (index === 0) return new Date(start)
+        if (index === configuration.count) return new Date(end)
+        if (configuration.evenlySplit) {
+          return new Date(start.getTime() + (((end - start) * index) / configuration.count))
+        }
+        return shiftPeriod(start, { amount: index, unit: configuration.unit })
+      })
   const buckets = Array.from({ length: configuration.count }, (_value, index) => {
     const bucketEnd = new Date(boundaries[index + 1].getTime() - 1)
     const startDate = localDateKey(boundaries[index])
-    const endDate = localDateKey(bucketEnd)
+    const endDate = configuration.granularity === 'day'
+      ? startDate
+      : localDateKey(bucketEnd)
     return {
-      date: configuration.granularity === 'day' ? endDate : startDate,
+      date: startDate,
       startDate,
       endDate,
       activities: 0,
@@ -64,6 +78,7 @@ function createHistoryBuckets(start, end, period) {
   return { boundaries, buckets, granularity: configuration.granularity }
 }
 
+// Gestisce add zones.
 function addZones(target, activity) {
   const zones = Array.isArray(activity.heartRateZones) ? activity.heartRateZones : []
   zones.forEach((zone) => {
@@ -75,6 +90,7 @@ function addZones(target, activity) {
   })
 }
 
+// Gestisce analyze combined activities.
 export function analyzeCombinedActivities(activities, period, now = new Date()) {
   const end = new Date(now)
   const start = periodStart(period, end)

@@ -3,7 +3,6 @@ import {
   CartesianGrid,
   Line,
   LineChart,
-  ReferenceLine,
   Tooltip,
   XAxis,
   YAxis,
@@ -12,6 +11,7 @@ import ChartContainer from './ChartContainer.jsx'
 import PeriodPicker from './PeriodPicker.jsx'
 import { formatDate, formatDistance, formatDuration, formatPaceDecimal } from '../utils/formatters.js'
 import { periodStart } from '../domain/periods.js'
+import { racePredictionDistances } from '../domain/racePredictions.js'
 
 const trendGranularities = [
   { value: 'week', label: 'Settimana' },
@@ -23,14 +23,6 @@ const longMonth = new Intl.DateTimeFormat('it-IT', {
   month: 'long',
   year: 'numeric',
 })
-
-const recordLabels = {
-  '1k': '1 km',
-  '5k': '5 km',
-  '10k': '10 km',
-  'Half Marathon': 'Mezza maratona',
-  'Full Marathon': 'Maratona',
-}
 
 const metricDefinitions = [
   {
@@ -94,6 +86,7 @@ const metricDefinitions = [
   },
 ]
 
+// Gestisce beginning of week.
 function beginningOfWeek(date) {
   const result = new Date(date)
   const day = (result.getDay() + 6) % 7
@@ -102,6 +95,7 @@ function beginningOfWeek(date) {
   return result
 }
 
+// Gestisce beginning of month.
 function beginningOfMonth(date) {
   const result = new Date(date)
   result.setDate(1)
@@ -109,6 +103,7 @@ function beginningOfMonth(date) {
   return result
 }
 
+// Gestisce beginning of year.
 function beginningOfYear(date) {
   const result = new Date(date)
   result.setMonth(0, 1)
@@ -116,12 +111,14 @@ function beginningOfYear(date) {
   return result
 }
 
+// Gestisce beginning of trend period.
 function beginningOfTrendPeriod(date, granularity) {
   if (granularity === 'month') return beginningOfMonth(date)
   if (granularity === 'year') return beginningOfYear(date)
   return beginningOfWeek(date)
 }
 
+// Gestisce local date key.
 function localDateKey(date) {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -129,6 +126,7 @@ function localDateKey(date) {
   return `${year}-${month}-${day}`
 }
 
+// Gestisce activity distance km.
 function activityDistanceKm(activity) {
   const km = Number(activity.km)
   if (Number.isFinite(km)) return km
@@ -136,6 +134,7 @@ function activityDistanceKm(activity) {
   return Number.isFinite(metres) ? metres / 1000 : 0
 }
 
+// Gestisce aggregate trends.
 function aggregateTrends(activities, start, end, granularity) {
   const periods = []
   const byDate = new Map()
@@ -192,6 +191,7 @@ function aggregateTrends(activities, start, end, granularity) {
   }))
 }
 
+// Gestisce metric copy.
 function metricCopy(metric, granularity) {
   const words = {
     week: {
@@ -210,6 +210,7 @@ function metricCopy(metric, granularity) {
       pluralAdjective: 'annuali',
     },
   }[granularity]
+  // Gestisce replace period words.
   const replacePeriodWords = (value) => value
     .replaceAll('settimanali', words.pluralAdjective)
     .replaceAll('settimanale', words.adjective)
@@ -222,6 +223,7 @@ function metricCopy(metric, granularity) {
   }
 }
 
+// Gestisce trend tick label.
 function trendTickLabel(value, granularity, showMonthYear) {
   const date = new Date(`${value}T00:00:00`)
   if (granularity === 'year') return String(date.getFullYear())
@@ -232,6 +234,7 @@ function trendTickLabel(value, granularity, showMonthYear) {
   return formatDate(date, 'short')
 }
 
+// Gestisce trend period label.
 function trendPeriodLabel(value, granularity) {
   const date = new Date(`${value}T00:00:00`)
   if (granularity === 'year') return `Anno ${date.getFullYear()}`
@@ -239,6 +242,7 @@ function trendPeriodLabel(value, granularity) {
   return `Settimana del ${formatDate(date)}`
 }
 
+// Gestisce analyze linear trend.
 function analyzeLinearTrend(data, key, ignoreZero = false) {
   const points = data
     .map((point, index) => ({
@@ -285,6 +289,7 @@ function analyzeLinearTrend(data, key, ignoreZero = false) {
   }
 }
 
+// Gestisce run axis scale.
 function runAxisScale(data) {
   const maximum = Math.max(0, ...data.map((point) => Number(point.runs) || 0))
 
@@ -306,6 +311,7 @@ function runAxisScale(data) {
   }
 }
 
+// Gestisce trend badge.
 function TrendBadge({ percent, lowerIsBetter = false, directionOnly = false }) {
   if (percent == null || !Number.isFinite(percent)) return null
 
@@ -344,6 +350,7 @@ function TrendBadge({ percent, lowerIsBetter = false, directionOnly = false }) {
   )
 }
 
+// Gestisce trend chart.
 function TrendChart({ metric: baseMetric, data, granularity }) {
   const metric = metricCopy(baseMetric, granularity)
   const hasData = data.some((point) => (
@@ -403,7 +410,7 @@ function TrendChart({ metric: baseMetric, data, granularity }) {
                 reversed={metric.reversed}
               />
               <Tooltip
-                itemSorter={(item) => (item.dataKey === 'trendValue' ? 1 : 0)}
+                itemSorter={(item) => (item?.dataKey === 'trendValue' ? 1 : 0)}
                 formatter={(value, name) => [
                   metric.format(value),
                   name,
@@ -441,74 +448,65 @@ function TrendChart({ metric: baseMetric, data, granularity }) {
   )
 }
 
-function recordDataForRange(recordHistory, recordKey, start) {
-  const records = recordHistory
-    .filter((record) => record.recordKey === recordKey)
-    .sort((a, b) => new Date(a.date) - new Date(b.date))
-  const inside = records.filter((record) => new Date(`${record.date}T00:00:00`) >= start)
-  const preceding = records.filter((record) => new Date(`${record.date}T00:00:00`) < start).at(-1)
-  return preceding
-    ? [{ ...preceding, date: localDateKey(start), baseline: true }, ...inside]
-    : inside
-}
-
-function RecordTrend({ history, start }) {
-  const availableRecords = Object.keys(recordLabels).filter((recordKey) => (
-    history.some((record) => record.recordKey === recordKey)
-  ))
-  const [selectedRecord, setSelectedRecord] = useState(null)
-  const activeRecord = availableRecords.includes(selectedRecord)
-    ? selectedRecord
-    : availableRecords[0]
-  const data = useMemo(
-    () => (
-      activeRecord
-        ? recordDataForRange(history, activeRecord, start)
-        : []
-    ),
-    [activeRecord, history, start],
-  )
-  const analysis = useMemo(() => analyzeLinearTrend(data, 'duration'), [data])
+// Gestisce race prediction trend.
+function RacePredictionTrend({ activities, racePredictions, period, granularity }) {
+  const start = periodStart(period)
+  const end = new Date()
+  const buckets = aggregateTrends(activities, start, end, granularity)
+  const sourceGranularity = granularity === 'week' ? 'daily' : 'monthly'
+  const sourcePredictions = racePredictions
+    .filter((prediction) => prediction.granularity === sourceGranularity)
+    .sort((first, second) => first.date.localeCompare(second.date))
+  const data = buckets.map((bucket) => {
+    const bucketStart = new Date(`${bucket.date}T00:00:00`)
+    const bucketEnd = granularity === 'week'
+      ? new Date(bucketStart.getFullYear(), bucketStart.getMonth(), bucketStart.getDate() + 7)
+      : granularity === 'month'
+        ? new Date(bucketStart.getFullYear(), bucketStart.getMonth() + 1, 1)
+        : new Date(bucketStart.getFullYear() + 1, 0, 1)
+    const matchingPredictions = sourcePredictions.filter((prediction) => {
+      const date = new Date(`${prediction.date}T00:00:00`)
+      return date >= bucketStart && date < bucketEnd
+    })
+    const prediction = matchingPredictions.at(-1)
+    return {
+      date: bucket.date,
+      '5k': prediction?.['5k'] ?? null,
+      '10k': prediction?.['10k'] ?? null,
+      halfMarathon: prediction?.halfMarathon ?? null,
+      marathon: prediction?.marathon ?? null,
+    }
+  })
+  const distances = racePredictionDistances()
+  const hasData = data.some((point) => distances.some((distance) => point[distance.key] != null))
 
   return (
-    <article className="panel record-trend-panel">
-      <div className="panel-heading record-trend-heading">
+    <article className="panel prediction-trend-panel">
+      <div className="panel-heading prediction-trend-heading">
         <div>
-          <p className="eyebrow">Record Garmin</p>
+          <p className="eyebrow">Previsioni di gara</p>
           <div className="trend-title-row">
-            <h2>Progressione dei record personali</h2>
-            <TrendBadge percent={analysis.percent} lowerIsBetter />
+            <h2>Andamento delle previsioni</h2>
           </div>
-          <p>
-            Lo storico parte dalla prima sincronizzazione e aggiunge un punto solo quando Garmin
-            restituisce un nuovo primato.
-          </p>
+          <p>Previsioni Garmin ufficiali, sincronizzate per ogni periodo selezionato.</p>
         </div>
-        {availableRecords.length > 0 && (
-          <div className="record-trend-selector" role="group" aria-label="Distanza del record">
-            {availableRecords.map((recordKey) => (
-              <button
-                type="button"
-                key={recordKey}
-                className={activeRecord === recordKey ? 'active' : ''}
-                aria-pressed={activeRecord === recordKey}
-                onClick={() => setSelectedRecord(recordKey)}
-              >
-                {recordLabels[recordKey]}
-              </button>
-            ))}
-          </div>
-        )}
+        <div className="prediction-legend" aria-label="Legenda delle distanze previste">
+          {distances.map((distance) => (
+            <span key={distance.key}>
+              <i style={{ backgroundColor: distance.color }} aria-hidden="true" />
+              {distance.label}
+            </span>
+          ))}
+        </div>
       </div>
-
-      {data.length > 0 ? (
-        <div className="record-trend-chart">
+      {hasData ? (
+        <div className="prediction-trend-chart">
           <ChartContainer>
-            <LineChart data={analysis.data} margin={{ top: 16, right: 22, left: 4, bottom: 0 }}>
+            <LineChart data={data} margin={{ top: 16, right: 22, left: 4, bottom: 0 }}>
               <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
               <XAxis
                 dataKey="date"
-                tickFormatter={(value) => formatDate(value, 'short')}
+                tickFormatter={(value) => trendTickLabel(value, granularity, data.length > 12)}
                 tickLine={false}
                 axisLine={false}
                 minTickGap={36}
@@ -523,54 +521,47 @@ function RecordTrend({ history, start }) {
                 reversed
               />
               <Tooltip
+                itemSorter={(first, second) => (
+                  (distances.findIndex((distance) => distance.key === first?.dataKey) < 0
+                    ? distances.length
+                    : distances.findIndex((distance) => distance.key === first?.dataKey))
+                  - (distances.findIndex((distance) => distance.key === second?.dataKey) < 0
+                    ? distances.length
+                    : distances.findIndex((distance) => distance.key === second?.dataKey))
+                )}
                 formatter={(value, name) => [
                   formatDuration(value),
-                  name === 'trendValue' ? 'Andamento' : recordLabels[activeRecord],
+                  distances.find((distance) => distance.key === name)?.label ?? name,
                 ]}
-                labelFormatter={(value) => formatDate(value)}
+                labelFormatter={(value) => trendPeriodLabel(value, granularity)}
               />
-              <Line
-                type="stepAfter"
-                dataKey="duration"
-                stroke="#ef5b24"
-                strokeWidth={3}
-                dot={{ fill: '#ffffff', stroke: '#ef5b24', strokeWidth: 3, r: 4 }}
-                activeDot={{ fill: '#ef5b24', stroke: '#ffffff', strokeWidth: 2, r: 6 }}
-              />
-              {data.length > 1 ? (
+              {distances.map((distance) => (
                 <Line
-                  type="linear"
-                  dataKey="trendValue"
-                  name="Andamento"
-                  stroke="#667068"
-                  strokeWidth={2}
-                  strokeDasharray="8 6"
-                  dot={false}
-                  activeDot={false}
-                  isAnimationActive={false}
+                  key={distance.key}
+                  type="monotone"
+                  dataKey={distance.key}
+                  name={distance.key}
+                  stroke={distance.color}
+                  strokeWidth={3}
+                  dot={{ fill: '#ffffff', stroke: distance.color, strokeWidth: 2, r: 3 }}
+                  connectNulls
                 />
-              ) : (
-                <ReferenceLine
-                  y={data[0].duration}
-                  stroke="#667068"
-                  strokeWidth={2}
-                  strokeDasharray="8 6"
-                />
-              )}
+              ))}
             </LineChart>
           </ChartContainer>
         </div>
       ) : (
-        <div className="record-trend-empty">
-          <strong>Nessuno storico disponibile</strong>
-          <p>Sincronizza Garmin per salvare il primo punto; i successivi arrivano con nuovi primati.</p>
+        <div className="prediction-trend-empty">
+          <strong>Dati insufficienti</strong>
+          <p>Sincronizza Garmin per importare lo storico delle previsioni gara.</p>
         </div>
       )}
     </article>
   )
 }
 
-function Trends({ activities, recordHistory }) {
+// Gestisce trends.
+function Trends({ activities, racePredictions }) {
   const [period, setPeriod] = useState({ amount: 12, unit: 'month' })
   const [granularity, setGranularity] = useState('week')
   const analysis = useMemo(() => {
@@ -581,11 +572,6 @@ function Trends({ activities, recordHistory }) {
       data: aggregateTrends(activities, start, end, granularity),
     }
   }, [activities, granularity, period])
-  const recordStart = useMemo(
-    () => periodStart(period),
-    [period],
-  )
-
   const granularityName = {
     week: 'settimana',
     month: 'mese',
@@ -598,7 +584,7 @@ function Trends({ activities, recordHistory }) {
         <div>
           <p className="eyebrow">Trend</p>
           <h1>Come sta cambiando la tua corsa.</h1>
-          <p>Volume, ritmo e intensità aggregati per {granularityName}, insieme ai record personali.</p>
+          <p>Volume, ritmo, intensità e previsioni di gara aggregati per {granularityName}.</p>
         </div>
         <div className="trend-controls">
           <PeriodPicker
@@ -613,6 +599,7 @@ function Trends({ activities, recordHistory }) {
             role="group"
             aria-label="Raggruppamento dei trend"
           >
+            <span className="period-control-label">Visualizza per</span>
             {trendGranularities.map((option) => (
               <button
                 type="button"
@@ -639,9 +626,11 @@ function Trends({ activities, recordHistory }) {
         ))}
       </section>
 
-      <RecordTrend
-        history={recordHistory}
-        start={recordStart}
+      <RacePredictionTrend
+        activities={activities}
+        racePredictions={racePredictions}
+        period={period}
+        granularity={granularity}
       />
     </div>
   )

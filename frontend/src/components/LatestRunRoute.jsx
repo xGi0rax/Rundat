@@ -3,6 +3,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { fetchJson } from '../services/api.js'
 
+// Gestisce route message.
 function routeMessage(status, activityLabel) {
   if (status === 'unavailable') {
     return {
@@ -22,6 +23,7 @@ function routeMessage(status, activityLabel) {
   }
 }
 
+// Gestisce route map.
 function RouteMap({ points, routeColor, endColor, activityLabel }) {
   const containerRef = useRef(null)
 
@@ -77,6 +79,7 @@ function RouteMap({ points, routeColor, endColor, activityLabel }) {
   )
 }
 
+// Gestisce latest activity route.
 function LatestActivityRoute({ activityId, refreshKey, sport = 'running' }) {
   const [routeState, setRouteState] = useState({
     activityId: null,
@@ -117,7 +120,6 @@ function LatestActivityRoute({ activityId, refreshKey, sport = 'running' }) {
       <div className="latest-route-heading">
         <div>
           <p className="eyebrow">Percorso</p>
-          <h2>Mappa dell’ultima {activityLabel}</h2>
         </div>
         {hasRoute && <span>{state.pointCount.toLocaleString('it-IT')} punti GPS</span>}
       </div>

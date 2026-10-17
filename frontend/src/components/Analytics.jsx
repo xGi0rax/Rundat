@@ -49,6 +49,7 @@ const metricDefinitions = {
   },
 }
 
+// Gestisce beginning of week.
 function beginningOfWeek(date) {
   const result = new Date(date)
   const day = (result.getDay() + 6) % 7
@@ -57,24 +58,28 @@ function beginningOfWeek(date) {
   return result
 }
 
+// Gestisce start of day.
 function startOfDay(date) {
   const result = new Date(date)
   result.setHours(0, 0, 0, 0)
   return result
 }
 
+// Gestisce beginning of month.
 function beginningOfMonth(date) {
   const result = startOfDay(date)
   result.setDate(1)
   return result
 }
 
+// Gestisce beginning of year.
 function beginningOfYear(date) {
   const result = startOfDay(date)
   result.setMonth(0, 1)
   return result
 }
 
+// Gestisce first monday on or after.
 function firstMondayOnOrAfter(date) {
   const result = startOfDay(date)
   const dayFromMonday = (result.getDay() + 6) % 7
@@ -82,12 +87,14 @@ function firstMondayOnOrAfter(date) {
   return result
 }
 
+// Gestisce inclusive calendar days.
 function inclusiveCalendarDays(start, end) {
   const startUtc = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate())
   const endUtc = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate())
   return Math.max(1, Math.round((endUtc - startUtc) / 86400000) + 1)
 }
 
+// Gestisce local date key.
 function localDateKey(date) {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -95,6 +102,7 @@ function localDateKey(date) {
   return `${year}-${month}-${day}`
 }
 
+// Gestisce activity distance km.
 function activityDistanceKm(activity) {
   const km = Number(activity.km)
   if (Number.isFinite(km)) return km
@@ -102,6 +110,7 @@ function activityDistanceKm(activity) {
   return Number.isFinite(metres) ? metres / 1000 : 0
 }
 
+// Gestisce week range label.
 function weekRangeLabel(value) {
   const monday = new Date(`${value}T00:00:00`)
   const sunday = new Date(monday)
@@ -109,6 +118,7 @@ function weekRangeLabel(value) {
   return `${formatDate(monday)} – ${formatDate(sunday)}`
 }
 
+// Gestisce create continuous weeks.
 function createContinuousWeeks(start, end) {
   const weeks = []
   for (const cursor = beginningOfWeek(start); cursor <= end; cursor.setDate(cursor.getDate() + 7)) {
@@ -126,6 +136,7 @@ function createContinuousWeeks(start, end) {
   return weeks
 }
 
+// Gestisce aggregate weeks.
 function aggregateWeeks(activities, start, end) {
   const weeks = createContinuousWeeks(start, end)
   const byDate = new Map(weeks.map((week) => [week.date, week]))
@@ -157,6 +168,7 @@ function aggregateWeeks(activities, start, end) {
   }))
 }
 
+// Gestisce volume bucket label.
 function volumeBucketLabel(date, granularity) {
   if (granularity === 'day') return formatDate(date)
   if (granularity === 'week') return `Settimana ${weekRangeLabel(localDateKey(date))}`
@@ -169,6 +181,7 @@ function volumeBucketLabel(date, granularity) {
   return String(date.getFullYear())
 }
 
+// Gestisce aggregate volume.
 function aggregateVolume(activities, granularity, period) {
   const now = new Date()
   const selectedStart = periodStart(period, now)
@@ -227,6 +240,7 @@ function aggregateVolume(activities, granularity, period) {
   }))
 }
 
+// Gestisce add trend.
 function addTrend(weeks) {
   const count = weeks.length
   if (count === 0) return { data: [], average: 0 }
@@ -257,6 +271,7 @@ function addTrend(weeks) {
   }
 }
 
+// Gestisce history for metric.
 function historyForMetric(activities, metric, period) {
   const end = new Date()
   const start = beginningOfWeek(periodStart(period, end))
@@ -273,10 +288,12 @@ function historyForMetric(activities, metric, period) {
   })
 }
 
+// Gestisce month label.
 function monthLabel(value) {
   return shortMonth.format(new Date(`${value}T00:00:00`)).replace('.', '')
 }
 
+// Gestisce month ticks.
 function monthTicks(data) {
   let previousMonth = null
   return data.reduce((ticks, point) => {
@@ -290,6 +307,7 @@ function monthTicks(data) {
   }, [])
 }
 
+// Gestisce format metric.
 function formatMetric(metric, value) {
   if (value == null || !Number.isFinite(Number(value))) return '—'
   if (metric === 'pace') return `${formatPaceDecimal(value)} /km`
@@ -297,8 +315,10 @@ function formatMetric(metric, value) {
   return formatDistance(value)
 }
 
+// Gestisce volume dot.
 function VolumeDot({ cx, cy, payload, selectedDate, onSelect }) {
   const selected = payload.date === selectedDate
+  // Gestisce select.
   const select = (event) => {
     event.stopPropagation()
     onSelect(payload.date)
@@ -330,6 +350,7 @@ function VolumeDot({ cx, cy, payload, selectedDate, onSelect }) {
   )
 }
 
+// Gestisce metric modal.
 function MetricModal({ activities, metric, onClose }) {
   const [period, setPeriod] = useState({ amount: 6, unit: 'month' })
   const definition = metricDefinitions[metric]
@@ -352,6 +373,7 @@ function MetricModal({ activities, metric, onClose }) {
   const visibleMonthTicks = monthTicks(data)
 
   useEffect(() => {
+    // Gestisce close on escape.
     const closeOnEscape = (event) => {
       if (event.key === 'Escape') onClose()
     }
@@ -363,6 +385,7 @@ function MetricModal({ activities, metric, onClose }) {
     }
   }, [onClose])
 
+  // Gestisce y tick formatter.
   const yTickFormatter = (value) => {
     if (metric === 'pace') return formatPaceDecimal(value)
     if (metric === 'heartRate') return Math.round(value)
@@ -476,6 +499,7 @@ function MetricModal({ activities, metric, onClose }) {
   )
 }
 
+// Gestisce analytics.
 function Analytics({ activities }) {
   const [period, setPeriod] = useState({ amount: 1, unit: 'month' })
   const [periodOffset, setPeriodOffset] = useState(0)
@@ -511,6 +535,7 @@ function Analytics({ activities }) {
     ?? volumeAnalysis.data.at(-1)
   const volumeShowsYears = volumeGranularity === 'month' && volumeAnalysis.data.length > 12
 
+  // Gestisce volume tick formatter.
   const volumeTickFormatter = (value) => {
     const date = new Date(`${value}T00:00:00`)
     if (volumeGranularity === 'day') return formatDate(date, 'short')
@@ -561,19 +586,23 @@ function Analytics({ activities }) {
     }
   }, [filtered, dateRange])
 
+  // Gestisce select period.
   const selectPeriod = (value) => {
     setPeriod(value)
     setPeriodOffset(0)
   }
 
+  // Gestisce show previous period.
   const showPreviousPeriod = () => {
     setPeriodOffset((value) => value + 1)
   }
 
+  // Gestisce show next period.
   const showNextPeriod = () => {
     setPeriodOffset((value) => Math.max(0, value - 1))
   }
 
+  // Gestisce select volume granularity.
   const selectVolumeGranularity = (value) => {
     setVolumeGranularity(value)
     setSelectedVolumeKey(null)

@@ -43,6 +43,7 @@ def parse_gpx_route(raw_gpx: bytes | str, max_points: int = MAX_ROUTE_POINTS) ->
 
 
 def _uniform_sample(points: list[dict[str, Any]], maximum: int) -> list[dict[str, Any]]:
+    """Gestisce l'operazione uniform sample."""
     if maximum < 2:
         raise ValueError("max_points deve essere almeno 2.")
     if len(points) <= maximum:
@@ -53,11 +54,13 @@ def _uniform_sample(points: list[dict[str, Any]], maximum: int) -> list[dict[str
 
 
 def _coordinate(value: Any, minimum: float, maximum: float) -> float | None:
+    """Gestisce l'operazione coordinate."""
     number = _number(value)
     return number if number is not None and minimum <= number <= maximum else None
 
 
 def _number(value: Any) -> float | None:
+    """Gestisce l'operazione number."""
     try:
         return float(value)
     except (TypeError, ValueError):

@@ -11,6 +11,7 @@ DEFAULT_CORS_ORIGINS = (
 
 
 def get_cors_origins() -> list[str]:
+    """Restituisce l'operazione get cors origins."""
     configured = os.getenv("RUNDAT_CORS_ORIGINS")
     if not configured:
         return list(DEFAULT_CORS_ORIGINS)
@@ -18,14 +19,17 @@ def get_cors_origins() -> list[str]:
 
 
 def get_db_path() -> Path:
+    """Restituisce l'operazione get db path."""
     return Path(os.getenv("RUNDAT_DB_PATH", DEFAULT_DB_FILE)).expanduser().resolve()
 
 
 def get_database_url() -> str | None:
+    """Restituisce l'operazione get database url."""
     value = os.getenv("DATABASE_URL", "").strip()
     return value or None
 
 
 def get_access_token() -> str | None:
+    """Restituisce l'operazione get access token."""
     value = os.getenv("RUNDAT_ACCESS_TOKEN", "").strip()
     return value or None

@@ -24,12 +24,14 @@ ACTIVITY_COLUMNS = (
 
 
 def count_activities(db_path: Path | None = None) -> int:
+    """Gestisce l'operazione count activities."""
     with connect(db_path) as connection:
         row = connection.execute("SELECT COUNT(*) AS activity_count FROM activities").fetchone()
         return int(row["activity_count"])
 
 
 def upsert_activities(activities: Iterable[dict[str, Any]], db_path: Path | None = None) -> dict[str, int]:
+    """Gestisce l'operazione upsert activities."""
     counts = {"inserted": 0, "updated": 0, "skipped": 0}
     now = datetime.now().isoformat(timespec="seconds")
 
@@ -80,6 +82,7 @@ def list_activities(
     db_path: Path | None = None,
     activity_type: str | None = None,
 ) -> list[dict[str, Any]]:
+    """Elenca l'operazione list activities."""
     type_filter = "AND activity_type = ?" if activity_type else ""
     parameters = (activity_type,) if activity_type else ()
     with connect(db_path) as connection:
@@ -105,6 +108,7 @@ def latest_activity_start(
     db_path: Path | None = None,
     activity_type: str | None = None,
 ) -> datetime | None:
+    """Gestisce l'operazione latest activity start."""
     type_filter = " WHERE activity_type = ?" if activity_type else ""
     parameters = (activity_type,) if activity_type else ()
     with connect(db_path) as connection:
@@ -117,6 +121,7 @@ def latest_activity_start(
 
 
 def _row_to_summary(row, heart_rate_zones: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    """Gestisce l'operazione row to summary."""
     speed = row["average_speed"]
     return {
         "activityId": row["activity_id"],
@@ -138,4 +143,5 @@ def _row_to_summary(row, heart_rate_zones: list[dict[str, Any]] | None = None) -
 
 
 def encode_raw_data(data: dict[str, Any]) -> str:
+    """Gestisce l'operazione encode raw data."""
     return json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(",", ":"))

@@ -11,7 +11,6 @@ from domain.sync_normalizers import (
     normalize_activity,
     normalize_activity_type,
     normalize_hr_zones,
-    normalize_personal_records,
 )
 from services.activity_repository import latest_activity_start, upsert_activities
 from services.activity_route_repository import (
@@ -25,7 +24,10 @@ from services.hr_zone_repository import (
     mark_activity_hr_zones_failed,
     replace_activity_hr_zones,
 )
-from services.personal_record_repository import replace_personal_records
+from services.race_prediction_repository import (
+    normalize_garmin_predictions,
+    upsert_race_predictions,
+)
 
 LOGGER = logging.getLogger(__name__)
 MAX_HR_ZONE_FETCHES_PER_SYNC = 20
@@ -33,6 +35,7 @@ SYNC_OVERLAP_DAYS = 7
 
 
 def sync_csv(csv_path: Path | None = None, db_path: Path | None = None) -> dict[str, Any]:
+    """Sincronizza l'operazione sync csv."""
     import pandas as pd
 
     path = Path(csv_path or CSV_FILE)
@@ -63,6 +66,7 @@ def sync_csv(csv_path: Path | None = None, db_path: Path | None = None) -> dict[
 
 
 def sync_garmin(db_path: Path | None = None) -> dict[str, Any]:
+    """Sincronizza l'operazione sync garmin."""
     from infrastructure.client_garmin import get_client
 
     run_id = _start_run("garmin", db_path)
@@ -135,15 +139,33 @@ def sync_garmin(db_path: Path | None = None) -> dict[str, Any]:
                     error,
                 )
                 mark_activity_hr_zones_failed(activity_id, str(error), db_path)
-        raw_personal_records = client.get_personal_record()
-        replace_personal_records(
-            normalize_personal_records(raw_personal_records),
-            db_path,
-        )
+        _sync_race_predictions(client, db_path)
         return _finish_run(run_id, "success", counts, db_path=db_path)
     except Exception as error:
         _finish_run(run_id, "failed", error_message=str(error), db_path=db_path)
         raise
+
+
+def _sync_race_predictions(client: Any, db_path: Path | None = None) -> None:
+    """Scarica lo storico giornaliero e mensile delle previsioni Garmin."""
+    today = datetime.now().date()
+    start = today - timedelta(days=365)
+    for granularity in ("daily", "monthly"):
+        try:
+            payload = client.get_race_predictions(
+                start.isoformat(),
+                today.isoformat(),
+                granularity,
+            )
+            normalized = normalize_garmin_predictions(payload, granularity)
+            if normalized:
+                upsert_race_predictions(normalized, db_path)
+        except Exception as error:
+            LOGGER.warning(
+                "Garmin race predictions unavailable for %s data: %s",
+                granularity,
+                error,
+            )
 
 
 def _sync_latest_activity_route(
@@ -151,6 +173,7 @@ def _sync_latest_activity_route(
     activity_type: str,
     db_path: Path | None = None,
 ) -> None:
+    """Sincronizza l'operazione sync latest activity route."""
     activity_id = latest_activity_id(activity_type, db_path)
     if activity_id is None or not route_needs_sync(activity_id, db_path):
         return
@@ -187,6 +210,7 @@ def _sync_latest_activity_route(
 
 
 def list_sync_runs(limit: int = 20, db_path: Path | None = None) -> list[dict[str, Any]]:
+    """Elenca l'operazione list sync runs."""
     with connect(db_path) as connection:
         rows = connection.execute(
             "SELECT * FROM sync_runs ORDER BY id DESC LIMIT ?", (limit,)
@@ -195,6 +219,7 @@ def list_sync_runs(limit: int = 20, db_path: Path | None = None) -> list[dict[st
 
 
 def _start_run(source: str, db_path: Path | None) -> int:
+    """Gestisce l'operazione start run."""
     with connect(db_path) as connection:
         cursor = connection.execute(
             """
@@ -214,6 +239,7 @@ def _finish_run(
     error_message: str | None = None,
     db_path: Path | None = None,
 ) -> dict[str, Any]:
+    """Gestisce l'operazione finish run."""
     counts = counts or {"inserted": 0, "updated": 0, "skipped": 0, "zones": 0}
     finished_at = datetime.now().isoformat(timespec="seconds")
     with connect(db_path) as connection:

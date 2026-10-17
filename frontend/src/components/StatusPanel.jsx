@@ -1,10 +1,11 @@
+// Gestisce status panel.
 function StatusPanel({ type, message, onRetry }) {
   if (type === 'loading') {
     return (
       <section className="status-panel" aria-live="polite" aria-busy="true">
         <span className="spinner" aria-hidden="true" />
         <h1>Sto preparando le tue corse</h1>
-        <p>Calcolo distanze, passo e record personali.</p>
+        <p>Calcolo distanze, passo e andamento delle prestazioni.</p>
       </section>
     )
   }

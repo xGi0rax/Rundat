@@ -51,22 +51,6 @@ class ActivityRoute(ApiModel):
     error_message: str | None = Field(default=None, alias="errorMessage")
 
 
-class PersonalBest(ApiModel):
-    distance: float = Field(ge=0)
-    date: str
-    time: str
-    pace: str | None = None
-    hr: float | None = Field(default=None, ge=0)
-
-
-class PersonalBestHistory(ApiModel):
-    record_key: str = Field(alias="recordKey")
-    distance: float = Field(gt=0, description="Record distance in kilometres")
-    duration: float = Field(ge=0, description="Record duration in seconds")
-    date: str
-    observed_at: datetime = Field(alias="observedAt")
-
-
 class DashboardSummary(ApiModel):
     total_activities: int = Field(alias="totalActivities", ge=0)
     total_distance_km: float = Field(alias="totalDistanceKm", ge=0)
@@ -74,7 +58,15 @@ class DashboardSummary(ApiModel):
     average_pace: str | None = Field(default=None, alias="averagePace")
     average_pace_decimal: float | None = Field(default=None, alias="averagePaceDecimal", ge=0)
     latest_activity: ActivitySummary | None = Field(default=None, alias="latestActivity")
-    personal_bests: dict[str, PersonalBest] = Field(alias="personalBests")
+
+
+class RacePrediction(ApiModel):
+    date: str
+    granularity: Literal["daily", "monthly"]
+    five_k: float | None = Field(default=None, alias="5k", ge=0)
+    ten_k: float | None = Field(default=None, alias="10k", ge=0)
+    half_marathon: float | None = Field(default=None, alias="halfMarathon", ge=0)
+    marathon: float | None = Field(default=None, ge=0)
 
 
 class SyncRun(ApiModel):

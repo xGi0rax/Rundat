@@ -8,6 +8,7 @@ import {
   median,
   paceMinutes,
 } from '../src/domain/dashboardAnalysis.js'
+import { analyzeCombinedActivities } from '../src/domain/activityAnalysis.js'
 
 function activity(id, day, distance, pace, averageHR, maxHR = averageHR + 15) {
   return {
@@ -62,4 +63,39 @@ test('heart-rate zones are normalized into five percentage buckets', () => {
   assert.equal(summary.zones.length, 5)
   assert.equal(summary.zones[1].percentage, 75)
   assert.equal(summary.easyShare, 100)
+})
+
+test('combined daily heart-rate zones keep consecutive local dates separate', () => {
+  const activities = [
+    {
+      activityId: 16,
+      activityType: 'running',
+      startTimeLocal: '2026-10-16T08:00:00',
+      duration: 1800,
+      distance: 5000,
+      heartRateZones: [{ zone: 2, seconds: 600 }],
+    },
+    {
+      activityId: 17,
+      activityType: 'cycling',
+      startTimeLocal: '2026-10-17T08:00:00',
+      duration: 2400,
+      distance: 12000,
+      heartRateZones: [{ zone: 4, seconds: 900 }],
+    },
+  ]
+
+  const analysis = analyzeCombinedActivities(
+    activities,
+    { amount: 1, unit: 'week' },
+    new Date('2026-10-17T18:00:00'),
+  )
+
+  const day16 = analysis.history.find((bucket) => bucket.date === '2026-10-16')
+  const day17 = analysis.history.find((bucket) => bucket.date === '2026-10-17')
+
+  assert.equal(day16.z2, 10)
+  assert.equal(day16.z4, 0)
+  assert.equal(day17.z2, 0)
+  assert.equal(day17.z4, 15)
 })

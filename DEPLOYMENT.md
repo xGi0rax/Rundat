@@ -41,7 +41,7 @@ $env:DATABASE_URL='INCOLLA_QUI_LA_TRANSACTION_POOLER_URI'
 Remove-Item Env:DATABASE_URL
 ```
 
-Lo script copia attività, zone cardiache, record personali, relativo storico e
+Lo script copia attività e zone cardiache
 sessione Garmin. È idempotente: può essere rilanciato senza duplicare le corse.
 Il database SQLite locale non viene modificato.
 

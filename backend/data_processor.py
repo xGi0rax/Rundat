@@ -7,9 +7,11 @@ from config import CSV_FILE
 from domain.activity_metrics import calc_pace_decimal, calculate_pace
 
 def load_and_clean_data():
+    """Carica il CSV, normalizza le metriche e ordina le attività per data."""
     if not CSV_FILE.exists():
         raise FileNotFoundError(f"CSV file '{CSV_FILE}' not found.")
 
+    # Dataset tabellare delle attività, trasformato progressivamente sotto.
     df = pd.read_csv(CSV_FILE)
 
     # Date
@@ -46,6 +48,7 @@ def load_and_clean_data():
 
 # Funzione per restituire la lista di attività come dizionari, con gestione dei NaN e formattazione della data
 def get_activities_list():
+    """Restituisce l'operazione get activities list."""
     df = load_and_clean_data()
     df = df.replace({np.nan: None})
     df['startTimeLocal'] = df['startTimeLocal'].dt.strftime('%Y-%m-%dT%H:%M:%S')
@@ -53,10 +56,13 @@ def get_activities_list():
 
 
 def _optional_number(value: Any):
+    """Gestisce l'operazione optional number."""
     return None if pd.isna(value) else value
 
 
 def _activity_summary(row: pd.Series) -> dict[str, Any]:
+    """Converte una riga Pandas nel formato sintetico restituito dall'API."""
+    # Riga dell'attività corrente, già pulita da load_and_clean_data.
     start_time = row['startTimeLocal']
     return {
         'activityId': int(row['activityId']),
@@ -77,11 +83,13 @@ def _activity_summary(row: pd.Series) -> dict[str, Any]:
 
 
 def get_activity_summaries() -> list[dict[str, Any]]:
+    """Restituisce l'operazione get activity summaries."""
     df = load_and_clean_data()
     return [_activity_summary(row) for _, row in df.iterrows()]
 
 
 def get_dashboard_summary(now: datetime | None = None) -> dict[str, Any]:
+    """Restituisce l'operazione get dashboard summary."""
     df = load_and_clean_data()
     reference_time = now or datetime.now()
     recent_cutoff = reference_time - timedelta(days=7)
@@ -98,40 +106,4 @@ def get_dashboard_summary(now: datetime | None = None) -> dict[str, Any]:
         'averagePace': calculate_pace(average_speed) if average_speed else None,
         'averagePaceDecimal': calc_pace_decimal(average_speed) if average_speed else None,
         'latestActivity': _activity_summary(df.iloc[0]) if not df.empty else None,
-        'personalBests': get_personal_bests(df),
     }
-
-# Funzione per recuperare i record
-def get_personal_bests(df=None):
-    if df is None:
-        df = load_and_clean_data()
-    records = {}
-    
-    distances = {
-        '1k': (0.9, 1.1),
-        '5k': (4.9, 5.2),
-        '10k': (9.8, 10.2),
-        'Half Marathon': (20.9, 21.3),
-        'Full Marathon': (41.9, 42.5)
-    }
-
-    for name, (min_d, max_d) in distances.items():
-        subset = df[(df['km'] >= min_d) & (df['km'] <= max_d)]
-        if not subset.empty:
-            best_run = subset.nsmallest(1, 'duration').iloc[0]
-
-            durration_sec = best_run['duration']
-            h = int(durration_sec // 3600)
-            m = int((durration_sec % 3600) // 60)
-            s = int(durration_sec % 60)
-            time_str = f"{h:02d}:{m:02d}:{s:02d}" if h > 0 else f"{m:02d}:{s:02d}"
-
-            records[name] = {
-                'distance': float(best_run['km']),
-                'date': best_run['startTimeLocal'].strftime('%Y-%m-%d'),
-                'time': time_str,
-                'pace': best_run['pace_str'],
-                'hr': _optional_number(best_run.get('averageHR', None))
-            }
-    
-    return records

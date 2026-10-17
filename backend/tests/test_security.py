@@ -16,10 +16,12 @@ from main import require_access_token
 
 class ApiSecurityTests(unittest.TestCase):
     def test_local_development_allows_missing_access_token(self):
+        """Verifica l'operazione test local development allows missing access token."""
         with patch.dict(os.environ, {}, clear=True):
             self.assertIsNone(require_access_token(None))
 
     def test_configured_access_token_is_compared_as_bearer(self):
+        """Verifica l'operazione test configured access token is compared as bearer."""
         credentials = HTTPAuthorizationCredentials(
             scheme="Bearer",
             credentials="correct-token",
@@ -32,6 +34,7 @@ class ApiSecurityTests(unittest.TestCase):
             self.assertIsNone(require_access_token(credentials))
 
     def test_invalid_access_token_is_rejected(self):
+        """Verifica l'operazione test invalid access token is rejected."""
         credentials = HTTPAuthorizationCredentials(
             scheme="Bearer",
             credentials="wrong-token",

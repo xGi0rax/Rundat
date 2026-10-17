@@ -21,6 +21,18 @@ ADD COLUMN IF NOT EXISTS activity_type TEXT NOT NULL DEFAULT 'running';
 CREATE INDEX IF NOT EXISTS idx_activities_start_time
 ON activities(start_time_local DESC);
 
+CREATE TABLE IF NOT EXISTS race_predictions (
+    prediction_date TEXT NOT NULL,
+    granularity TEXT NOT NULL CHECK (granularity IN ('daily', 'monthly')),
+    five_k_seconds DOUBLE PRECISION,
+    ten_k_seconds DOUBLE PRECISION,
+    half_marathon_seconds DOUBLE PRECISION,
+    marathon_seconds DOUBLE PRECISION,
+    raw_data TEXT NOT NULL,
+    synced_at TEXT NOT NULL,
+    PRIMARY KEY (prediction_date, granularity)
+);
+
 CREATE TABLE IF NOT EXISTS activity_hr_zones (
     activity_id BIGINT NOT NULL REFERENCES activities(activity_id) ON DELETE CASCADE,
     zone_number INTEGER NOT NULL CHECK (zone_number BETWEEN 1 AND 5),
@@ -51,33 +63,6 @@ CREATE TABLE IF NOT EXISTS activity_routes (
     synced_at TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS personal_records (
-    record_key TEXT PRIMARY KEY,
-    type_id INTEGER NOT NULL,
-    activity_id BIGINT,
-    distance_km DOUBLE PRECISION NOT NULL CHECK (distance_km > 0),
-    duration DOUBLE PRECISION NOT NULL CHECK (duration >= 0),
-    record_date TEXT NOT NULL,
-    raw_data TEXT NOT NULL,
-    synced_at TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS personal_record_history (
-    id BIGSERIAL PRIMARY KEY,
-    record_key TEXT NOT NULL,
-    type_id INTEGER NOT NULL,
-    activity_id BIGINT,
-    distance_km DOUBLE PRECISION NOT NULL CHECK (distance_km > 0),
-    duration DOUBLE PRECISION NOT NULL CHECK (duration >= 0),
-    record_date TEXT NOT NULL,
-    raw_data TEXT NOT NULL,
-    observed_at TEXT NOT NULL,
-    UNIQUE (record_key, activity_id, duration)
-);
-
-CREATE INDEX IF NOT EXISTS idx_personal_record_history_date
-ON personal_record_history(record_date);
-
 CREATE TABLE IF NOT EXISTS sync_runs (
     id BIGSERIAL PRIMARY KEY,
     source TEXT NOT NULL,
@@ -101,8 +86,7 @@ ALTER TABLE activities ENABLE ROW LEVEL SECURITY;
 ALTER TABLE activity_hr_zones ENABLE ROW LEVEL SECURITY;
 ALTER TABLE activity_hr_zone_sync ENABLE ROW LEVEL SECURITY;
 ALTER TABLE activity_routes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE personal_records ENABLE ROW LEVEL SECURITY;
-ALTER TABLE personal_record_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE race_predictions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sync_runs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE garmin_token_store ENABLE ROW LEVEL SECURITY;
 

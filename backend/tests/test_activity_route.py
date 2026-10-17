@@ -32,6 +32,7 @@ GPX = b"""<?xml version="1.0" encoding="UTF-8"?>
 
 class ActivityRouteTests(unittest.TestCase):
     def setUp(self):
+        """Gestisce l'operazione setUp."""
         self.temp_dir = tempfile.TemporaryDirectory()
         self.db_path = Path(self.temp_dir.name) / "rundat.db"
         initialize_database(self.db_path)
@@ -48,9 +49,11 @@ class ActivityRouteTests(unittest.TestCase):
         upsert_activities([activity], self.db_path)
 
     def tearDown(self):
+        """Gestisce l'operazione tearDown."""
         self.temp_dir.cleanup()
 
     def test_gpx_points_are_parsed_and_reduced_with_endpoints_preserved(self):
+        """Verifica l'operazione test gpx points are parsed and reduced with endpoints preserved."""
         points = parse_gpx_route(GPX, max_points=2)
 
         self.assertEqual(len(points), 2)
@@ -59,6 +62,7 @@ class ActivityRouteTests(unittest.TestCase):
         self.assertEqual(points[0]["elevation"], 120.4)
 
     def test_route_repository_exposes_pending_and_persisted_routes(self):
+        """Verifica l'operazione test route repository exposes pending and persisted routes."""
         pending = get_activity_route(501, self.db_path)
         self.assertEqual(pending["status"], "pending")
         self.assertTrue(route_needs_sync(501, self.db_path))
@@ -73,6 +77,7 @@ class ActivityRouteTests(unittest.TestCase):
         ActivityRoute.model_validate(route)
 
     def test_latest_cycling_route_is_downloaded_and_persisted(self):
+        """Verifica l'operazione test latest cycling route is downloaded and persisted."""
         cycling_activity = normalize_activity(
             {
                 "activityId": 502,
@@ -92,9 +97,11 @@ class ActivityRouteTests(unittest.TestCase):
             ActivityDownloadFormat = FakeFormat
 
             def __init__(self):
+                """Gestisce l'operazione init  ."""
                 self.downloaded = []
 
             def download_activity(self, activity_id, download_format):
+                """Gestisce l'operazione download activity."""
                 self.downloaded.append((activity_id, download_format))
                 return GPX
 

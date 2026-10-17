@@ -11,16 +11,19 @@ class DatabaseConnection:
     """Small DB-API compatibility layer for SQLite locally and PostgreSQL in production."""
 
     def __init__(self, connection: Any, dialect: str):
+        """Gestisce l'operazione init  ."""
         self._connection = connection
         self.dialect = dialect
 
     def execute(self, statement: str, parameters: Iterable[Any] = ()):
+        """Gestisce l'operazione execute."""
         return self._connection.execute(
             _postgres_placeholders(statement) if self.dialect == "postgresql" else statement,
             tuple(parameters),
         )
 
     def executemany(self, statement: str, parameters: Iterable[Iterable[Any]]):
+        """Gestisce l'operazione executemany."""
         query = _postgres_placeholders(statement) if self.dialect == "postgresql" else statement
         if self.dialect == "postgresql":
             cursor = self._connection.cursor()
@@ -30,11 +33,13 @@ class DatabaseConnection:
 
 
 def uses_postgres(db_path: Path | None = None) -> bool:
+    """Gestisce l'operazione uses postgres."""
     return db_path is None and bool(get_database_url())
 
 
 @contextmanager
 def connect(db_path: Path | None = None):
+    """Apre l'operazione connect."""
     if uses_postgres(db_path):
         try:
             import psycopg
@@ -72,6 +77,7 @@ def connect(db_path: Path | None = None):
 
 
 def initialize_database(db_path: Path | None = None) -> None:
+    """Inizializza l'operazione initialize database."""
     statements = (
         _postgres_schema_statements()
         if uses_postgres(db_path)
@@ -110,26 +116,15 @@ def initialize_database(db_path: Path | None = None) -> None:
                 "ALTER TABLE sync_runs "
                 "ADD COLUMN IF NOT EXISTS hr_zone_count INTEGER NOT NULL DEFAULT 0"
             )
-        connection.execute(
-            """
-            INSERT INTO personal_record_history (
-                record_key, type_id, activity_id, distance_km, duration,
-                record_date, raw_data, observed_at
-            )
-            SELECT record_key, type_id, activity_id, distance_km, duration,
-                   record_date, raw_data, synced_at
-            FROM personal_records
-            WHERE true
-            ON CONFLICT (record_key, activity_id, duration) DO NOTHING
-            """
-        )
 
 
 def _postgres_placeholders(statement: str) -> str:
+    """Gestisce l'operazione postgres placeholders."""
     return statement.replace("?", "%s")
 
 
 def _common_schema_statements(sync_run_id: str) -> tuple[str, ...]:
+    """Gestisce l'operazione common schema statements."""
     return (
         """
         CREATE TABLE IF NOT EXISTS activities (
@@ -152,6 +147,19 @@ def _common_schema_statements(sync_run_id: str) -> tuple[str, ...]:
         """
         CREATE INDEX IF NOT EXISTS idx_activities_start_time
         ON activities(start_time_local DESC)
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS race_predictions (
+            prediction_date TEXT NOT NULL,
+            granularity TEXT NOT NULL CHECK (granularity IN ('daily', 'monthly')),
+            five_k_seconds DOUBLE PRECISION,
+            ten_k_seconds DOUBLE PRECISION,
+            half_marathon_seconds DOUBLE PRECISION,
+            marathon_seconds DOUBLE PRECISION,
+            raw_data TEXT NOT NULL,
+            synced_at TEXT NOT NULL,
+            PRIMARY KEY (prediction_date, granularity)
+        )
         """,
         """
         CREATE TABLE IF NOT EXISTS activity_hr_zones (
@@ -190,36 +198,6 @@ def _common_schema_statements(sync_run_id: str) -> tuple[str, ...]:
             FOREIGN KEY (activity_id) REFERENCES activities(activity_id) ON DELETE CASCADE
         )
         """,
-        """
-        CREATE TABLE IF NOT EXISTS personal_records (
-            record_key TEXT PRIMARY KEY,
-            type_id INTEGER NOT NULL,
-            activity_id BIGINT,
-            distance_km DOUBLE PRECISION NOT NULL CHECK (distance_km > 0),
-            duration DOUBLE PRECISION NOT NULL CHECK (duration >= 0),
-            record_date TEXT NOT NULL,
-            raw_data TEXT NOT NULL,
-            synced_at TEXT NOT NULL
-        )
-        """,
-        f"""
-        CREATE TABLE IF NOT EXISTS personal_record_history (
-            id {sync_run_id},
-            record_key TEXT NOT NULL,
-            type_id INTEGER NOT NULL,
-            activity_id BIGINT,
-            distance_km DOUBLE PRECISION NOT NULL CHECK (distance_km > 0),
-            duration DOUBLE PRECISION NOT NULL CHECK (duration >= 0),
-            record_date TEXT NOT NULL,
-            raw_data TEXT NOT NULL,
-            observed_at TEXT NOT NULL,
-            UNIQUE (record_key, activity_id, duration)
-        )
-        """,
-        """
-        CREATE INDEX IF NOT EXISTS idx_personal_record_history_date
-        ON personal_record_history(record_date)
-        """,
         f"""
         CREATE TABLE IF NOT EXISTS sync_runs (
             id {sync_run_id},
@@ -245,10 +223,12 @@ def _common_schema_statements(sync_run_id: str) -> tuple[str, ...]:
 
 
 def _sqlite_schema_statements() -> tuple[str, ...]:
+    """Gestisce l'operazione sqlite schema statements."""
     return _common_schema_statements("INTEGER PRIMARY KEY AUTOINCREMENT")
 
 
 def _postgres_schema_statements() -> tuple[str, ...]:
+    """Gestisce l'operazione postgres schema statements."""
     statements = list(_common_schema_statements("BIGSERIAL PRIMARY KEY"))
     if os.getenv("RUNDAT_ENABLE_RLS", "true").lower() not in {"0", "false", "no"}:
         statements.extend(
@@ -258,8 +238,7 @@ def _postgres_schema_statements() -> tuple[str, ...]:
                 "activity_hr_zones",
                 "activity_hr_zone_sync",
                 "activity_routes",
-                "personal_records",
-                "personal_record_history",
+                "race_predictions",
                 "sync_runs",
                 "garmin_token_store",
             )

@@ -11,6 +11,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 def fetch_full_datas():
+    """Recupera l'operazione fetch full datas."""
     client = get_client()
     activities = fetch_all_activities(client)
     frame = pd.DataFrame(activities)

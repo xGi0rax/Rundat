@@ -9,6 +9,7 @@ STORE_KEY = "garmin-connect"
 
 
 def load_token_bundle() -> dict[str, bytes]:
+    """Carica l'operazione load token bundle."""
     with connect() as connection:
         row = connection.execute(
             "SELECT token_bundle FROM garmin_token_store WHERE store_key = ?",
@@ -25,6 +26,7 @@ def load_token_bundle() -> dict[str, bytes]:
 
 
 def save_token_directory(token_directory: Path) -> None:
+    """Salva l'operazione save token directory."""
     encoded_files = {
         file.relative_to(token_directory).as_posix(): base64.b64encode(
             file.read_bytes()
@@ -54,6 +56,7 @@ def save_token_directory(token_directory: Path) -> None:
 
 
 def restore_token_directory(token_directory: Path) -> bool:
+    """Gestisce l'operazione restore token directory."""
     files = load_token_bundle()
     if not files:
         return False
@@ -66,6 +69,7 @@ def restore_token_directory(token_directory: Path) -> bool:
 
 
 def _safe_relative_name(value: str) -> str:
+    """Gestisce l'operazione safe relative name."""
     path = PurePosixPath(value)
     if path.is_absolute() or ".." in path.parts or not path.parts:
         raise ValueError("Nome file token Garmin non valido.")

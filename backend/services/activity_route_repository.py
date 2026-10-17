@@ -7,6 +7,7 @@ from services.database import connect
 
 
 def latest_activity_id(activity_type: str, db_path: Path | None = None) -> int | None:
+    """Gestisce l'operazione latest activity id."""
     with connect(db_path) as connection:
         row = connection.execute(
             """
@@ -22,6 +23,7 @@ def latest_activity_id(activity_type: str, db_path: Path | None = None) -> int |
 
 
 def route_needs_sync(activity_id: int, db_path: Path | None = None) -> bool:
+    """Gestisce l'operazione route needs sync."""
     with connect(db_path) as connection:
         row = connection.execute(
             "SELECT status FROM activity_routes WHERE activity_id = ?",
@@ -37,6 +39,7 @@ def save_activity_route(
     error_message: str | None = None,
     db_path: Path | None = None,
 ) -> None:
+    """Salva l'operazione save activity route."""
     with connect(db_path) as connection:
         connection.execute(
             """
@@ -62,6 +65,7 @@ def save_activity_route(
 
 
 def get_activity_route(activity_id: int, db_path: Path | None = None) -> dict[str, Any]:
+    """Restituisce l'operazione get activity route."""
     with connect(db_path) as connection:
         activity = connection.execute(
             "SELECT activity_id FROM activities WHERE activity_id = ?",

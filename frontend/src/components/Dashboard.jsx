@@ -22,6 +22,7 @@ import {
   formatDuration,
   formatHeartRate,
   formatPaceDecimal,
+  formatRelativeDate,
 } from '../utils/formatters.js'
 import {
   analyzeDashboard,
@@ -38,6 +39,7 @@ import {
   periodRange,
 } from '../domain/periods.js'
 
+// Gestisce comparison info dialog.
 function ComparisonInfoDialog({
   title,
   description,
@@ -55,6 +57,7 @@ function ComparisonInfoDialog({
   onClose,
 }) {
   useEffect(() => {
+    // Gestisce close on escape.
     const closeOnEscape = (event) => {
       if (event.key === 'Escape') onClose()
     }
@@ -130,8 +133,10 @@ function ComparisonInfoDialog({
   )
 }
 
+// Gestisce insight info dialog.
 function InsightInfoDialog({ title, value, description, information, onClose }) {
   useEffect(() => {
+    // Gestisce close on escape.
     const closeOnEscape = (event) => {
       if (event.key === 'Escape') onClose()
     }
@@ -183,6 +188,7 @@ function InsightInfoDialog({ title, value, description, information, onClose }) 
   )
 }
 
+// Gestisce comparison chart.
 function ComparisonChart({
   eyebrow,
   title,
@@ -334,6 +340,7 @@ function ComparisonChart({
   )
 }
 
+// Gestisce insight card.
 function InsightCard({
   eyebrow,
   title,
@@ -394,6 +401,7 @@ function InsightCard({
   )
 }
 
+// Gestisce latest run summary.
 function LatestRunSummary({ activity }) {
   const pace = paceMinutes(activity)
   return (
@@ -403,7 +411,9 @@ function LatestRunSummary({ activity }) {
     >
       <div className="latest-run-identity">
         <span>Ultima attività analizzata</span>
-        <strong>{formatDate(activity.startTimeLocal, 'long')}</strong>
+        <strong>
+          {formatDate(activity.startTimeLocal, 'long')} - {formatRelativeDate(activity.startTimeLocal)}
+        </strong>
       </div>
       <div>
         <span>Distanza</span>
@@ -425,10 +435,12 @@ function LatestRunSummary({ activity }) {
   )
 }
 
+// Gestisce activity detail dialog.
 function ActivityDetailDialog({ activity, onClose }) {
   const pace = paceMinutes(activity)
 
   useEffect(() => {
+    // Gestisce close on escape.
     const closeOnEscape = (event) => {
       if (event.key === 'Escape') onClose()
     }
@@ -482,7 +494,9 @@ function ActivityDetailDialog({ activity, onClose }) {
   )
 }
 
+// Gestisce activity scatter point.
 function ActivityScatterPoint({ cx, cy, payload, onSelect, latest = false }) {
+  // Gestisce open details.
   const openDetails = () => onSelect(payload.activity)
   return (
     <g
@@ -516,6 +530,7 @@ function ActivityScatterPoint({ cx, cy, payload, onSelect, latest = false }) {
   )
 }
 
+// Gestisce effort scatter.
 function EffortScatter({ historical, latest }) {
   const referenceDate = new Date(latest.startTimeLocal)
   const pickerActivities = [...historical, latest]
@@ -651,7 +666,8 @@ function EffortScatter({ historical, latest }) {
   )
 }
 
-function Dashboard({ activities, syncState, onSync }) {
+// Gestisce dashboard.
+function Dashboard({ activities }) {
   const analysis = useMemo(() => analyzeDashboard(activities), [activities])
 
   if (!analysis) {
@@ -668,7 +684,9 @@ function Dashboard({ activities, syncState, onSync }) {
     )
   }
 
+  // Gestisce pace axis formatter.
   const paceAxisFormatter = (seconds) => formatPaceDecimal(seconds / 60)
+  // Gestisce pace formatter.
   const paceFormatter = (seconds) => `${formatPaceDecimal(seconds / 60)} /km`
   const latestPaceSeconds = analysis.latestPace ? analysis.latestPace * 60 : null
   const referencePaceAtHr = analysis.heartRateReferencePace
@@ -730,34 +748,6 @@ function Dashboard({ activities, syncState, onSync }) {
         <div>
           <p className="eyebrow">Corsa</p>
           <h1>Dentro l'ultima corsa.</h1>
-          <p>
-            Confronti con attività simili per capire se sto correndo più velocemente
-            o con minore sforzo cardiaco.
-          </p>
-        </div>
-        <div className="dashboard-actions">
-          <button
-            type="button"
-            className="sync-button"
-            onClick={onSync}
-            disabled={syncState.status === 'loading'}
-          >
-            <span
-              className={syncState.status === 'loading' ? 'sync-icon is-spinning' : 'sync-icon'}
-              aria-hidden="true"
-            >
-              ↻
-            </span>
-            {syncState.status === 'loading' ? 'Sincronizzazione…' : 'Sincronizza Garmin'}
-          </button>
-          {syncState.message && (
-            <p
-              className={`sync-message ${syncState.status}`}
-              role={syncState.status === 'error' ? 'alert' : 'status'}
-            >
-              {syncState.message}
-            </p>
-          )}
         </div>
       </section>
 
@@ -765,7 +755,6 @@ function Dashboard({ activities, syncState, onSync }) {
         <LatestRunSummary activity={analysis.latest} />
         <LatestActivityRoute
           activityId={analysis.latest.activityId}
-          refreshKey={`${syncState.status}-${syncState.message}`}
           sport="running"
         />
       </section>

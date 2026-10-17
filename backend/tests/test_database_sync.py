@@ -12,20 +12,19 @@ if str(BACKEND_DIR) not in sys.path:
 
 from schemas import DashboardSummary, SyncRun
 from services.activity_repository import count_activities
-from services.activity_service import get_activities, get_dashboard, get_personal_best_history
+from services.activity_service import get_activities, get_dashboard
 from services.database import initialize_database
-from services.personal_record_repository import replace_personal_records
 from services.sync_service import (
     list_sync_runs,
     normalize_activity,
     normalize_hr_zones,
-    normalize_personal_records,
     sync_csv,
 )
 
 
 class DatabaseSyncTests(unittest.TestCase):
     def setUp(self):
+        """Gestisce l'operazione setUp."""
         self.temp_dir = tempfile.TemporaryDirectory()
         self.db_path = Path(self.temp_dir.name) / "rundat.db"
         self.csv_path = Path(self.temp_dir.name) / "activities.csv"
@@ -53,9 +52,11 @@ class DatabaseSyncTests(unittest.TestCase):
         initialize_database(self.db_path)
 
     def tearDown(self):
+        """Gestisce l'operazione tearDown."""
         self.temp_dir.cleanup()
 
     def test_csv_import_is_idempotent_and_records_history(self):
+        """Verifica l'operazione test csv import is idempotent and records history."""
         first = sync_csv(self.csv_path, self.db_path)
         second = sync_csv(self.csv_path, self.db_path)
 
@@ -67,6 +68,7 @@ class DatabaseSyncTests(unittest.TestCase):
         SyncRun.model_validate(second)
 
     def test_existing_activity_is_updated_by_activity_id(self):
+        """Verifica l'operazione test existing activity is updated by activity id."""
         sync_csv(self.csv_path, self.db_path)
         self.rows[0]["activityName"] = "Updated name"
         pd.DataFrame(self.rows).to_csv(self.csv_path, index=False)
@@ -80,6 +82,7 @@ class DatabaseSyncTests(unittest.TestCase):
         self.assertEqual(activities[0]["activityName"], "Updated name")
 
     def test_csv_and_garmin_zone_shapes_are_normalized_and_persisted(self):
+        """Verifica l'operazione test csv and garmin zone shapes are normalized and persisted."""
         self.rows[0].update(
             {
                 "hrTimeInZone_1": 120,
@@ -107,6 +110,7 @@ class DatabaseSyncTests(unittest.TestCase):
         self.assertEqual(garmin_zones[1]["seconds"], 300)
 
     def test_invalid_numbers_are_rejected_without_crashing_normalization(self):
+        """Verifica l'operazione test invalid numbers are rejected without crashing normalization."""
         malformed = {**self.rows[0], "distance": "not-a-number"}
         self.assertIsNone(normalize_activity(malformed))
 
@@ -124,6 +128,7 @@ class DatabaseSyncTests(unittest.TestCase):
         }])
 
     def test_running_and_cycling_types_are_normalized_and_persisted(self):
+        """Verifica l'operazione test running and cycling types are normalized and persisted."""
         self.rows[0]["activityType"] = {"typeKey": "running"}
         self.rows[1]["activityType"] = {"typeKey": "cycling"}
         pd.DataFrame(self.rows).to_csv(self.csv_path, index=False)
@@ -142,6 +147,7 @@ class DatabaseSyncTests(unittest.TestCase):
         self.assertEqual(dashboard.latest_activity.activity_type, "running")
 
     def test_dashboard_contract_is_preserved_after_migration(self):
+        """Verifica l'operazione test dashboard contract is preserved after migration."""
         sync_csv(self.csv_path, self.db_path)
         result = get_dashboard(datetime(2026, 7, 22, 12, 0), self.db_path)
         dashboard = DashboardSummary.model_validate(result)
@@ -150,44 +156,6 @@ class DatabaseSyncTests(unittest.TestCase):
         self.assertEqual(dashboard.total_distance_km, 15)
         self.assertEqual(dashboard.last_7_days_distance_km, 5)
         self.assertEqual(dashboard.latest_activity.activity_id, 101)
-
-    def test_dashboard_uses_personal_records_returned_by_garmin(self):
-        sync_csv(self.csv_path, self.db_path)
-        records = normalize_personal_records(
-            [
-                {
-                    "id": 501,
-                    "typeId": 3,
-                    "activityId": 101,
-                    "activityStartDateTimeLocalFormatted": "2026-07-20T08:00:00",
-                    "value": 1450,
-                },
-                {
-                    "id": 502,
-                    "typeId": 2,
-                    "activityId": 101,
-                    "activityStartDateTimeLocalFormatted": "2026-07-20T08:00:00",
-                    "value": 430,
-                },
-            ]
-        )
-        replace_personal_records(records, self.db_path)
-
-        dashboard = DashboardSummary.model_validate(
-            get_dashboard(datetime(2026, 7, 22, 12, 0), self.db_path)
-        )
-        five_k = dashboard.personal_bests["5k"]
-
-        self.assertEqual(set(dashboard.personal_bests), {"5k"})
-        self.assertEqual(five_k.time, "24:10")
-        self.assertEqual(five_k.pace, "4:50")
-        self.assertEqual(five_k.date, "2026-07-20")
-        self.assertEqual(five_k.hr, 150)
-        history = get_personal_best_history(self.db_path)
-        self.assertEqual(len(history), 1)
-        self.assertEqual(history[0]["recordKey"], "5k")
-        self.assertEqual(history[0]["duration"], 1450)
-
 
 if __name__ == "__main__":
     unittest.main()

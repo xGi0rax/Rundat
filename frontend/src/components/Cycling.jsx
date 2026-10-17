@@ -23,6 +23,7 @@ import {
   formatDistance,
   formatDuration,
   formatHeartRate,
+  formatRelativeDate,
 } from '../utils/formatters.js'
 import {
   HEART_RATE_ZONE_COLORS,
@@ -39,18 +40,21 @@ import {
 } from '../domain/cyclingAnalysis.js'
 import { normalizePeriod, periodRange } from '../domain/periods.js'
 
+// Gestisce format speed.
 function formatSpeed(value) {
   return Number.isFinite(value)
     ? `${value.toLocaleString('it-IT', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} km/h`
     : '—'
 }
 
+// Gestisce format elevation.
 function formatElevation(value) {
   return Number.isFinite(Number(value))
     ? `${Math.round(Number(value)).toLocaleString('it-IT')} m`
     : '—'
 }
 
+// Gestisce comparison card.
 function ComparisonCard({
   eyebrow,
   title,
@@ -160,13 +164,15 @@ function ComparisonCard({
   )
 }
 
+// Gestisce latest ride summary.
 function LatestRideSummary({ activity }) {
   return (
-    <section className="latest-run-summary latest-cycle-summary" aria-label="Dati dell’ultima uscita in bici">
+    <section className="latest-run-summary latest-cycle-summary" aria-label="Dati dell'ultima uscita in bici">
       <div className="latest-run-identity">
         <span>Ultima attività analizzata</span>
-        <strong>{formatDate(activity.startTimeLocal, 'long')}</strong>
-        <small>{activity.activityName || 'Uscita in bici'}</small>
+        <strong>
+          {formatDate(activity.startTimeLocal, 'long')} - {formatRelativeDate(activity.startTimeLocal)}
+        </strong>
       </div>
       <div>
         <span>Distanza</span>
@@ -192,6 +198,7 @@ function LatestRideSummary({ activity }) {
   )
 }
 
+// Gestisce latest cycling scatter point.
 function LatestCyclingScatterPoint({ cx, cy }) {
   return (
     <g aria-label="Ultima uscita in bici">
@@ -209,6 +216,7 @@ function LatestCyclingScatterPoint({ cx, cy }) {
   )
 }
 
+// Gestisce cycling charts.
 function CyclingCharts({ activities, latest }) {
   const [period, setPeriod] = useState({ amount: 1, unit: 'year' })
   const referenceDate = new Date(latest.startTimeLocal)
@@ -449,7 +457,8 @@ function CyclingCharts({ activities, latest }) {
   )
 }
 
-function Cycling({ activities, syncState = { status: 'idle', message: '' }, onSync }) {
+// Gestisce cycling.
+function Cycling({ activities }) {
   const analysis = useMemo(() => analyzeCyclingActivities(activities), [activities])
 
   if (!analysis) {
@@ -461,9 +470,6 @@ function Cycling({ activities, syncState = { status: 'idle', message: '' }, onSy
             <h1>Analisi delle uscite in bici.</h1>
             <p>Sincronizza Garmin per importare e confrontare le tue attività.</p>
           </div>
-          {onSync && (
-            <button type="button" className="sync-button" onClick={onSync}>Sincronizza Garmin</button>
-          )}
         </section>
         <section className="panel comparison-empty cycling-empty">
           <strong>Nessuna uscita in bici sincronizzata</strong>
@@ -485,35 +491,7 @@ function Cycling({ activities, syncState = { status: 'idle', message: '' }, onSy
       <section className="page-heading latest-analysis-heading cycling-heading">
         <div>
           <p className="eyebrow">Ciclismo</p>
-          <h1>Dentro l’ultima uscita.</h1>
-          <p>
-            Confronti con attività simili per capire velocità, efficienza cardiaca
-            e distribuzione dello sforzo.
-          </p>
-        </div>
-        <div className="dashboard-actions">
-          <button
-            type="button"
-            className="sync-button"
-            onClick={onSync}
-            disabled={!onSync || syncState.status === 'loading'}
-          >
-            <span
-              className={syncState.status === 'loading' ? 'sync-icon is-spinning' : 'sync-icon'}
-              aria-hidden="true"
-            >
-              ↻
-            </span>
-            {syncState.status === 'loading' ? 'Sincronizzazione…' : 'Sincronizza Garmin'}
-          </button>
-          {syncState.message && (
-            <p
-              className={`sync-message ${syncState.status}`}
-              role={syncState.status === 'error' ? 'alert' : 'status'}
-            >
-              {syncState.message}
-            </p>
-          )}
+          <h1>Dentro l'ultima uscita.</h1>
         </div>
       </section>
 
@@ -521,7 +499,6 @@ function Cycling({ activities, syncState = { status: 'idle', message: '' }, onSy
         <LatestRideSummary activity={analysis.latest} />
         <LatestActivityRoute
           activityId={analysis.latest.activityId}
-          refreshKey={`${syncState.status}-${syncState.message}`}
           sport="cycling"
         />
       </section>

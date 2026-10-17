@@ -1,3 +1,4 @@
+// Gestisce distance km.
 export function distanceKm(activity) {
   const km = Number(activity?.km)
   if (Number.isFinite(km)) return km
@@ -5,6 +6,7 @@ export function distanceKm(activity) {
   return Number.isFinite(metres) ? metres / 1000 : null
 }
 
+// Gestisce pace minutes.
 export function paceMinutes(activity) {
   const pace = Number(activity?.paceDecimal)
   if (Number.isFinite(pace) && pace > 0) return pace
@@ -15,11 +17,13 @@ export function paceMinutes(activity) {
     : null
 }
 
+// Gestisce heart rate.
 export function heartRate(activity) {
   const value = Number(activity?.averageHR)
   return Number.isFinite(value) && value > 0 ? value : null
 }
 
+// Gestisce max average heart rate ratio.
 function maxAverageHeartRateRatio(activity) {
   const averageHeartRate = heartRate(activity)
   const maximumHeartRate = Number(activity?.maxHR)
@@ -32,6 +36,7 @@ function maxAverageHeartRateRatio(activity) {
   return maximumHeartRate / averageHeartRate
 }
 
+// Gestisce median.
 export function median(values) {
   const sorted = values.filter(Number.isFinite).sort((a, b) => a - b)
   if (!sorted.length) return null
@@ -41,11 +46,13 @@ export function median(values) {
     : (sorted[middle - 1] + sorted[middle]) / 2
 }
 
+// Gestisce average.
 function average(values) {
   const valid = values.filter(Number.isFinite)
   return valid.length ? valid.reduce((sum, value) => sum + value, 0) / valid.length : null
 }
 
+// Gestisce standard deviation.
 function standardDeviation(values) {
   const valid = values.filter(Number.isFinite)
   const mean = average(valid)
@@ -55,6 +62,7 @@ function standardDeviation(values) {
   )
 }
 
+// Gestisce solve linear system.
 function solveLinearSystem(matrix, vector) {
   const size = vector.length
   const augmented = matrix.map((row, index) => [...row, vector[index]])
@@ -83,6 +91,7 @@ function solveLinearSystem(matrix, vector) {
   return augmented.map((row) => row[size])
 }
 
+// Gestisce fit regression.
 function fitRegression(rows, targetKey, predictorKeys) {
   const valid = rows.filter((row) => (
     Number.isFinite(row[targetKey])
@@ -119,6 +128,7 @@ function fitRegression(rows, targetKey, predictorKeys) {
   const coefficients = solveLinearSystem(matrix, vector)
   if (!coefficients) return null
 
+  // Gestisce predict.
   const predict = (row) => coefficients.reduce((sum, coefficient, index) => (
     index === 0
       ? sum + coefficient
@@ -135,6 +145,7 @@ function fitRegression(rows, targetKey, predictorKeys) {
   }
 }
 
+// Gestisce percentile rank.
 function percentileRank(values, current, higherIsBetter = true) {
   const valid = values.filter(Number.isFinite)
   if (!valid.length || !Number.isFinite(current)) return null
@@ -144,6 +155,7 @@ function percentileRank(values, current, higherIsBetter = true) {
   return (notBetter / valid.length) * 100
 }
 
+// Gestisce activity training load.
 function activityTrainingLoad(activity, observedMaxHeartRate) {
   const hr = heartRate(activity)
   const durationMinutes = Number(activity.duration) / 60
@@ -151,6 +163,7 @@ function activityTrainingLoad(activity, observedMaxHeartRate) {
   return durationMinutes * ((hr / observedMaxHeartRate) ** 2)
 }
 
+// Gestisce cardiac cost per km.
 function cardiacCostPerKm(activity) {
   const hr = heartRate(activity)
   const distance = distanceKm(activity)
@@ -161,6 +174,7 @@ function cardiacCostPerKm(activity) {
 
 export const HEART_RATE_ZONE_COLORS = ['#a9b8ad', '#4f7d5c', '#d3a83f', '#e57a32', '#b84b3a']
 
+// Gestisce heart rate zone summary.
 export function heartRateZoneSummary(activity) {
   const source = Array.isArray(activity?.heartRateZones) ? activity.heartRateZones : []
   const byZone = new Map(
@@ -187,6 +201,7 @@ export function heartRateZoneSummary(activity) {
   }
 }
 
+// Gestisce aerobic efficiency.
 function aerobicEfficiency(activity) {
   const pace = paceMinutes(activity)
   const hr = heartRate(activity)
@@ -195,12 +210,14 @@ function aerobicEfficiency(activity) {
   return (speedKmh / hr) * 100
 }
 
+// Gestisce confidence for.
 export function confidenceFor(count) {
   if (count >= 8) return { label: 'Affidabilità alta', className: 'high' }
   if (count >= 4) return { label: 'Affidabilità media', className: 'medium' }
   return { label: 'Affidabilità indicativa', className: 'low' }
 }
 
+// Gestisce comparison status.
 export function comparisonStatus(latestValue, referenceValue, lowerIsBetter) {
   if (!Number.isFinite(latestValue) || !Number.isFinite(referenceValue) || referenceValue === 0) {
     return null
@@ -219,6 +236,7 @@ export function comparisonStatus(latestValue, referenceValue, lowerIsBetter) {
   }
 }
 
+// Gestisce analyze dashboard.
 export function analyzeDashboard(activities) {
   const ordered = [...activities].sort(
     (first, second) => new Date(second.startTimeLocal) - new Date(first.startTimeLocal),
@@ -332,6 +350,7 @@ export function analyzeDashboard(activities) {
   const previous7Days = previous28Days.filter((activity) => (
     (latestDate - new Date(activity.startTimeLocal)) / millisecondsPerDay <= 7
   ))
+  // Gestisce sum distance.
   const sumDistance = (items) => items.reduce(
     (sum, activity) => sum + (distanceKm(activity) || 0),
     0,

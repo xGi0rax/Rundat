@@ -11,20 +11,12 @@ import {
   formatDate,
   formatDistance,
   formatDuration,
-  formatHeartRate,
   formatPaceDecimal,
 } from '../utils/formatters.js'
 import { cyclingSpeedKmh } from '../domain/cyclingAnalysis.js'
 import { paceMinutes } from '../domain/dashboardAnalysis.js'
 
-const recordLabels = {
-  '1k': '1 km',
-  '5k': '5 km',
-  '10k': '10 km',
-  'Half Marathon': 'Mezza maratona',
-  'Full Marathon': 'Maratona',
-}
-
+// Gestisce metric card.
 function MetricCard({ label, value, detail, sport }) {
   return (
     <article className={`metric-card${sport ? ` profile-${sport}-metric` : ''}`}>
@@ -35,23 +27,26 @@ function MetricCard({ label, value, detail, sport }) {
   )
 }
 
+// Gestisce format speed.
 function formatSpeed(value) {
   return Number.isFinite(value)
     ? `${value.toLocaleString('it-IT', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} km/h`
     : '—'
 }
 
+// Gestisce format elevation.
 function formatElevation(value) {
   return `${Math.round(value).toLocaleString('it-IT')} m`
 }
 
+// Gestisce format pace.
 function formatPace(value) {
   return Number.isFinite(value) ? `${formatPaceDecimal(value)} /km` : '—'
 }
 
+// Gestisce profile.
 function Profile({ summary, activities, cyclingActivities = [] }) {
   const chartData = activities.slice(0, 10).reverse()
-  const records = Object.entries(summary?.personalBests ?? {})
   const totalActivities = summary?.totalActivities ?? activities.length
   const totalDistance = summary?.totalDistanceKm
     ?? activities.reduce((sum, activity) => sum + (Number(activity.km) || 0), 0)
@@ -141,32 +136,6 @@ function Profile({ summary, activities, cyclingActivities = [] }) {
           </div>
         </article>
 
-        <article className="panel records-panel">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Prestazioni</p>
-              <h2>Record personali</h2>
-            </div>
-          </div>
-          {records.length > 0 ? (
-            <ul className="records-list">
-              {records.map(([name, record]) => (
-                <li key={name}>
-                  <div>
-                    <strong>{recordLabels[name] ?? name}</strong>
-                    <span>{formatDate(record.date, 'long')} · {formatHeartRate(record.hr)}</span>
-                  </div>
-                  <div className="record-result">
-                    <strong>{record.time}</strong>
-                    <span>{record.pace ? `${record.pace} /km` : '—'}</span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="inline-empty">Nessun record disponibile per le distanze standard.</p>
-          )}
-        </article>
       </section>
 
       <section className="profile-metrics-section" aria-labelledby="profile-running-title">
