@@ -91,7 +91,7 @@ def list_activities(
             SELECT activity_id, activity_name, activity_type, start_time_local, distance, duration,
                    average_speed, average_hr, max_hr, calories, elevation_gain
             FROM activities
-            WHERE distance >= 1000
+            WHERE 1 = 1
             {type_filter}
             ORDER BY start_time_local DESC
             """,

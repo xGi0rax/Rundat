@@ -13,11 +13,10 @@ import {
 import ChartContainer from './ChartContainer.jsx'
 import PeriodPicker from './PeriodPicker.jsx'
 import { formatDate, formatDistance, formatDuration, formatPaceDecimal } from '../utils/formatters.js'
-import { periodLabel, periodRange, periodStart } from '../domain/periods.js'
+import { periodLabel, periodRange, periodStart, shiftPeriod } from '../domain/periods.js'
 
 const shortMonth = new Intl.DateTimeFormat('it-IT', { month: 'short' })
 const volumeGranularities = [
-  { value: 'day', label: 'Giorni' },
   { value: 'week', label: 'Settimane' },
   { value: 'month', label: 'Mesi' },
   { value: 'year', label: 'Anni' },
@@ -79,12 +78,35 @@ function beginningOfYear(date) {
   return result
 }
 
-// Gestisce first monday on or after.
-function firstMondayOnOrAfter(date) {
-  const result = startOfDay(date)
-  const dayFromMonday = (result.getDay() + 6) % 7
-  if (dayFromMonday !== 0) result.setDate(result.getDate() + (7 - dayFromMonday))
-  return result
+function periodAlignmentLabel(unit) {
+  if (unit === 'month') return 'Fai partire a inizio mese'
+  if (unit === 'year') return 'Fai partire a inizio anno'
+  return 'Fai partire la settimana da lunedì'
+}
+
+function alignedPeriodRange(period, referenceDate, offset = 0) {
+  const anchor = new Date(referenceDate)
+  if (period.unit === 'week') {
+    const dayFromMonday = (anchor.getDay() + 6) % 7
+    anchor.setDate(anchor.getDate() - dayFromMonday)
+  } else if (period.unit === 'month') {
+    anchor.setDate(1)
+  } else {
+    anchor.setMonth(0, 1)
+  }
+  anchor.setHours(0, 0, 0, 0)
+
+  const unitPeriod = { amount: 1, unit: period.unit }
+  const blockStart = shiftPeriod(
+    anchor,
+    unitPeriod,
+    -((period.amount - 1) + (period.amount * offset)),
+  )
+  const nextBlockStart = shiftPeriod(blockStart, unitPeriod, period.amount)
+  return {
+    start: blockStart,
+    end: offset === 0 ? new Date(referenceDate) : new Date(nextBlockStart.getTime() - 1),
+  }
 }
 
 // Gestisce inclusive calendar days.
@@ -504,7 +526,7 @@ function Analytics({ activities }) {
   const [period, setPeriod] = useState({ amount: 1, unit: 'month' })
   const [periodOffset, setPeriodOffset] = useState(0)
   const [alignToMonday, setAlignToMonday] = useState(false)
-  const [volumeGranularity, setVolumeGranularity] = useState('day')
+  const [volumeGranularity, setVolumeGranularity] = useState('week')
   const [volumePeriod, setVolumePeriod] = useState({ amount: 1, unit: 'month' })
   const [selectedVolumeKey, setSelectedVolumeKey] = useState(null)
   const [showWeeklyAverage, setShowWeeklyAverage] = useState(false)
@@ -513,10 +535,9 @@ function Analytics({ activities }) {
 
   const dateRange = useMemo(() => {
     const now = new Date()
-    const range = periodRange(period, periodOffset, now)
     return alignToMonday
-      ? { ...range, start: firstMondayOnOrAfter(range.start) }
-      : range
+      ? alignedPeriodRange(period, now, periodOffset)
+      : periodRange(period, periodOffset, now)
   }, [alignToMonday, period, periodOffset])
 
   const filtered = useMemo(
@@ -675,7 +696,6 @@ function Analytics({ activities }) {
         <div>
           <p className="eyebrow">Approfondimenti</p>
           <h1>Le metriche nel tempo.</h1>
-          <p>Esplora il volume e l'andamento delle tue corse nel periodo scelto.</p>
         </div>
         <div className="analytics-period-settings">
           <PeriodPicker
@@ -694,7 +714,7 @@ function Analytics({ activities }) {
                 setPeriodOffset(0)
               }}
             />
-            Fai partire il periodo da lunedì
+            {periodAlignmentLabel(period.unit)}
           </label>
         </div>
       </section>
@@ -763,7 +783,6 @@ function Analytics({ activities }) {
           <div>
             <p className="eyebrow">Volume</p>
             <h2>Volume di corsa</h2>
-            <p>Visualizza i chilometri percorsi per giorno, settimana, mese o anno.</p>
           </div>
           <div className="volume-controls">
             <div className="period-control" role="group" aria-label="Raggruppamento del volume">

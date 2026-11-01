@@ -28,10 +28,25 @@ from services.race_prediction_repository import (
     normalize_garmin_predictions,
     upsert_race_predictions,
 )
+from services.garmin_form_diagnostic_repository import (
+    list_diagnostic_metrics,
+    save_diagnostic_snapshot,
+)
 
 LOGGER = logging.getLogger(__name__)
 MAX_HR_ZONE_FETCHES_PER_SYNC = 20
 SYNC_OVERLAP_DAYS = 7
+FORM_DIAGNOSTIC_METHODS = {
+    "trainingReadiness": "get_training_readiness",
+    "trainingStatus": "get_training_status",
+    "hrv": "get_hrv_data",
+    "sleep": "get_sleep_data",
+    "stress": "get_stress_data",
+    "bodyBattery": "get_body_battery",
+    "restingHeartRate": "get_rhr_day",
+    "maxMetrics": "get_max_metrics",
+    "enduranceScore": "get_endurance_score",
+}
 
 
 def sync_csv(csv_path: Path | None = None, db_path: Path | None = None) -> dict[str, Any]:
@@ -144,6 +159,57 @@ def sync_garmin(db_path: Path | None = None) -> dict[str, Any]:
     except Exception as error:
         _finish_run(run_id, "failed", error_message=str(error), db_path=db_path)
         raise
+
+
+def diagnose_garmin_form(
+    days: int = 7,
+    db_path: Path | None = None,
+) -> dict[str, Any]:
+    """Interroga le metriche Garmin di forma e salva i payload grezzi."""
+    from infrastructure.client_garmin import get_client
+
+    client = get_client()
+    today = datetime.now().date()
+    metrics = []
+    for offset in range(days):
+        snapshot_date = today - timedelta(days=offset)
+        date_value = snapshot_date.isoformat()
+        for metric, method_name in FORM_DIAGNOSTIC_METHODS.items():
+            try:
+                method = getattr(client, method_name, None)
+                if method is None:
+                    save_diagnostic_snapshot(
+                        metric,
+                        date_value,
+                        "unavailable",
+                        error_message=f"Il client Garmin non espone {method_name}.",
+                        db_path=db_path,
+                    )
+                    continue
+                payload = method(date_value)
+                status = "available" if payload else "empty"
+                save_diagnostic_snapshot(
+                    metric,
+                    date_value,
+                    status,
+                    payload=payload,
+                    db_path=db_path,
+                )
+            except Exception as error:
+                LOGGER.warning(
+                    "Garmin form metric %s unavailable for %s: %s",
+                    metric,
+                    date_value,
+                    error,
+                )
+                save_diagnostic_snapshot(
+                    metric,
+                    date_value,
+                    "error",
+                    error_message=str(error),
+                    db_path=db_path,
+                )
+    return {"days": days, "metrics": list_diagnostic_metrics(db_path)}
 
 
 def _sync_race_predictions(client: Any, db_path: Path | None = None) -> None:

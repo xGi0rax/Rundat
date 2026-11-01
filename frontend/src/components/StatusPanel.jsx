@@ -4,8 +4,8 @@ function StatusPanel({ type, message, onRetry }) {
     return (
       <section className="status-panel" aria-live="polite" aria-busy="true">
         <span className="spinner" aria-hidden="true" />
-        <h1>Sto preparando le tue corse</h1>
-        <p>Calcolo distanze, passo e andamento delle prestazioni.</p>
+        <h1>Caricamento dei dati in corso</h1>
+        <p>Attendi solo un momento.</p>
       </section>
     )
   }

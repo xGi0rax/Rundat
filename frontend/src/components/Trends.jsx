@@ -9,6 +9,7 @@ import {
 } from 'recharts'
 import ChartContainer from './ChartContainer.jsx'
 import PeriodPicker from './PeriodPicker.jsx'
+import PerformanceOverview from './PerformanceOverview.jsx'
 import { formatDate, formatDistance, formatDuration, formatPaceDecimal } from '../utils/formatters.js'
 import { periodStart } from '../domain/periods.js'
 import { racePredictionDistances } from '../domain/racePredictions.js'
@@ -33,21 +34,21 @@ const metricDefinitions = [
     color: '#ef5b24',
     format: (value) => formatDistance(value),
   },
-  {
-    key: 'hours',
-    eyebrow: 'Volume',
-    title: 'Tempo settimanale',
-    description: 'Ore complessive di corsa ogni settimana.',
-    color: '#315e3b',
-    format: (value) => `${Number(value).toLocaleString('it-IT', { maximumFractionDigits: 1 })} h`,
-  },
-  {
+    {
     key: 'runs',
     eyebrow: 'Costanza',
     title: 'Corse settimanali',
     description: 'Numero di attività registrate ogni settimana.',
     color: '#87672d',
     format: (value) => `${Math.round(value)} ${Math.round(value) === 1 ? 'corsa' : 'corse'}`,
+  },
+  {
+    key: 'longest',
+    eyebrow: 'Resistenza',
+    title: 'Corsa più lunga',
+    description: 'Distanza massima raggiunta in ciascuna settimana.',
+    color: '#70549b',
+    format: (value) => formatDistance(value),
   },
   {
     key: 'averageRunKm',
@@ -76,14 +77,7 @@ const metricDefinitions = [
     format: (value) => `${Math.round(value)} bpm`,
     directionOnly: true,
   },
-  {
-    key: 'longest',
-    eyebrow: 'Resistenza',
-    title: 'Corsa più lunga',
-    description: 'Distanza massima raggiunta in ciascuna settimana.',
-    color: '#70549b',
-    format: (value) => formatDistance(value),
-  },
+
 ]
 
 // Gestisce beginning of week.
@@ -448,6 +442,36 @@ function TrendChart({ metric: baseMetric, data, granularity }) {
   )
 }
 
+function formatPredictionChange(value) {
+  if (value == null || !Number.isFinite(value)) return '—'
+  return `${value > 0 ? '+' : ''}${Math.round(value)}%`
+}
+
+function predictionSummary(predictions, key) {
+  const series = predictions
+    .filter((prediction) => Number(prediction[key]) > 0)
+    .sort((first, second) => first.date.localeCompare(second.date))
+  const latest = series.at(-1)
+  if (!latest) return { latest: null, best: null, change30: null, change90: null }
+  const latestValue = Number(latest[key])
+  const latestDate = new Date(`${latest.date}T00:00:00`)
+  const baseline = (days) => {
+    const target = new Date(latestDate)
+    target.setDate(target.getDate() - days)
+    return series.filter((prediction) => new Date(`${prediction.date}T00:00:00`) <= target).at(-1)
+  }
+  const change = (days) => {
+    const previous = baseline(days)
+    return previous ? ((latestValue - Number(previous[key])) / Number(previous[key])) * 100 : null
+  }
+  return {
+    latest: latestValue,
+    best: Math.min(...series.map((prediction) => Number(prediction[key]))),
+    change30: change(30),
+    change90: change(90),
+  }
+}
+
 // Gestisce race prediction trend.
 function RacePredictionTrend({ activities, racePredictions, period, granularity }) {
   const start = periodStart(period)
@@ -478,6 +502,10 @@ function RacePredictionTrend({ activities, racePredictions, period, granularity 
     }
   })
   const distances = racePredictionDistances()
+  const monthlyPredictions = racePredictions.filter((prediction) => prediction.granularity === 'monthly')
+  const predictionSummaries = Object.fromEntries(
+    distances.map((distance) => [distance.key, predictionSummary(monthlyPredictions, distance.key)]),
+  )
   const hasData = data.some((point) => distances.some((distance) => point[distance.key] != null))
 
   return (
@@ -488,7 +516,6 @@ function RacePredictionTrend({ activities, racePredictions, period, granularity 
           <div className="trend-title-row">
             <h2>Andamento delle previsioni</h2>
           </div>
-          <p>Previsioni Garmin ufficiali, sincronizzate per ogni periodo selezionato.</p>
         </div>
         <div className="prediction-legend" aria-label="Legenda delle distanze previste">
           {distances.map((distance) => (
@@ -500,56 +527,69 @@ function RacePredictionTrend({ activities, racePredictions, period, granularity 
         </div>
       </div>
       {hasData ? (
-        <div className="prediction-trend-chart">
-          <ChartContainer>
-            <LineChart data={data} margin={{ top: 16, right: 22, left: 4, bottom: 0 }}>
-              <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
-              <XAxis
-                dataKey="date"
-                tickFormatter={(value) => trendTickLabel(value, granularity, data.length > 12)}
-                tickLine={false}
-                axisLine={false}
-                minTickGap={36}
-              />
-              <YAxis
-                orientation="right"
-                tickFormatter={formatDuration}
-                tickLine={false}
-                axisLine={false}
-                width={64}
-                domain={['auto', 'auto']}
-                reversed
-              />
-              <Tooltip
-                itemSorter={(first, second) => (
-                  (distances.findIndex((distance) => distance.key === first?.dataKey) < 0
-                    ? distances.length
-                    : distances.findIndex((distance) => distance.key === first?.dataKey))
-                  - (distances.findIndex((distance) => distance.key === second?.dataKey) < 0
-                    ? distances.length
-                    : distances.findIndex((distance) => distance.key === second?.dataKey))
-                )}
-                formatter={(value, name) => [
-                  formatDuration(value),
-                  distances.find((distance) => distance.key === name)?.label ?? name,
-                ]}
-                labelFormatter={(value) => trendPeriodLabel(value, granularity)}
-              />
-              {distances.map((distance) => (
-                <Line
-                  key={distance.key}
-                  type="monotone"
-                  dataKey={distance.key}
-                  name={distance.key}
-                  stroke={distance.color}
-                  strokeWidth={3}
-                  dot={{ fill: '#ffffff', stroke: distance.color, strokeWidth: 2, r: 3 }}
-                  connectNulls
+        <>
+          <div className="prediction-trend-chart">
+            <ChartContainer>
+              <LineChart data={data} margin={{ top: 16, right: 22, left: 4, bottom: 0 }}>
+                <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
+                <XAxis
+                  dataKey="date"
+                  tickFormatter={(value) => trendTickLabel(value, granularity, data.length > 12)}
+                  tickLine={false}
+                  axisLine={false}
+                  minTickGap={36}
                 />
-              ))}
-            </LineChart>
-          </ChartContainer>
-        </div>
+                <YAxis
+                  orientation="right"
+                  tickFormatter={formatDuration}
+                  tickLine={false}
+                  axisLine={false}
+                  width={64}
+                  domain={['auto', 'auto']}
+                  reversed
+                />
+                <Tooltip
+                  itemSorter={(first, second) => (
+                    (distances.findIndex((distance) => distance.key === first?.dataKey) < 0
+                      ? distances.length
+                      : distances.findIndex((distance) => distance.key === first?.dataKey))
+                    - (distances.findIndex((distance) => distance.key === second?.dataKey) < 0
+                      ? distances.length
+                      : distances.findIndex((distance) => distance.key === second?.dataKey))
+                  )}
+                  formatter={(value, name) => [
+                    formatDuration(value),
+                    distances.find((distance) => distance.key === name)?.label ?? name,
+                  ]}
+                  labelFormatter={(value) => trendPeriodLabel(value, granularity)}
+                />
+                {distances.map((distance) => (
+                  <Line
+                    key={distance.key}
+                    type="monotone"
+                    dataKey={distance.key}
+                    name={distance.key}
+                    stroke={distance.color}
+                    strokeWidth={3}
+                    dot={{ fill: '#ffffff', stroke: distance.color, strokeWidth: 2, r: 3 }}
+                    connectNulls
+                  />
+                ))}
+              </LineChart>
+            </ChartContainer>
+          </div>
+          <div className="prediction-change-list">
+            {distances.map((distance) => (
+              <div key={distance.key} className="prediction-summary">
+                <strong>{distance.label}</strong>
+                <span><small>Ultima</small><b>{formatDuration(predictionSummaries[distance.key].latest)}</b></span>
+                <span><small>Migliore</small><b>{formatDuration(predictionSummaries[distance.key].best)}</b></span>
+                <span><small>30g</small><b>{formatPredictionChange(predictionSummaries[distance.key].change30)}</b></span>
+                <span><small>90g</small><b>{formatPredictionChange(predictionSummaries[distance.key].change90)}</b></span>
+              </div>
+            ))}
+          </div>
+        </>
       ) : (
         <div className="prediction-trend-empty">
           <strong>Dati insufficienti</strong>
@@ -561,30 +601,25 @@ function RacePredictionTrend({ activities, racePredictions, period, granularity 
 }
 
 // Gestisce trends.
-function Trends({ activities, racePredictions }) {
+function Trends({ activities, allActivities = activities, racePredictions }) {
   const [period, setPeriod] = useState({ amount: 12, unit: 'month' })
   const [granularity, setGranularity] = useState('week')
+  const [excludeEmptyPeriods, setExcludeEmptyPeriods] = useState(false)
   const analysis = useMemo(() => {
     const end = new Date()
     const start = periodStart(period)
+    const data = aggregateTrends(activities, start, end, granularity)
     return {
       start,
-      data: aggregateTrends(activities, start, end, granularity),
+      data: excludeEmptyPeriods ? data.filter((point) => point.runs > 0) : data,
     }
-  }, [activities, granularity, period])
-  const granularityName = {
-    week: 'settimana',
-    month: 'mese',
-    year: 'anno',
-  }[granularity]
-
+  }, [activities, excludeEmptyPeriods, granularity, period])
   return (
     <div className="page-stack">
       <section className="page-heading trends-heading">
         <div>
           <p className="eyebrow">Trend</p>
-          <h1>Come sta cambiando la tua corsa.</h1>
-          <p>Volume, ritmo, intensità e previsioni di gara aggregati per {granularityName}.</p>
+          <h1>Come sta cambiando la mia corsa.</h1>
         </div>
         <div className="trend-controls">
           <PeriodPicker
@@ -599,7 +634,6 @@ function Trends({ activities, racePredictions }) {
             role="group"
             aria-label="Raggruppamento dei trend"
           >
-            <span className="period-control-label">Visualizza per</span>
             {trendGranularities.map((option) => (
               <button
                 type="button"
@@ -612,6 +646,14 @@ function Trends({ activities, racePredictions }) {
               </button>
             ))}
           </div>
+          <label className="trend-anomaly-toggle">
+            <span>Escludi anomalie</span>
+            <input
+              type="checkbox"
+              checked={excludeEmptyPeriods}
+              onChange={(event) => setExcludeEmptyPeriods(event.target.checked)}
+            />
+          </label>
         </div>
       </section>
 
@@ -631,6 +673,10 @@ function Trends({ activities, racePredictions }) {
         racePredictions={racePredictions}
         period={period}
         granularity={granularity}
+      />
+      <PerformanceOverview
+        activities={allActivities}
+        racePredictions={racePredictions}
       />
     </div>
   )

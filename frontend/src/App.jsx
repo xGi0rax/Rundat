@@ -187,7 +187,6 @@ function App() {
     () => activitiesOfType(data.activities, 'cycling'),
     [data.activities],
   )
-
   useEffect(() => {
     document.documentElement.dataset.theme = theme
     window.localStorage.setItem('rundat-theme', theme)
@@ -402,6 +401,7 @@ function App() {
             {view === 'trends' && (
               <Trends
                 activities={runningActivities}
+                allActivities={data.activities}
                 racePredictions={data.racePredictions}
               />
             )}

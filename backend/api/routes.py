@@ -11,6 +11,7 @@ from schemas import (
     ActivityRoute,
     ActivitySummary,
     DashboardSummary,
+    GarminDiagnosticRun,
     RacePrediction,
     SyncRun,
 )
@@ -18,7 +19,12 @@ from services.activity_route_repository import get_activity_route
 from services.activity_service import get_activities, get_dashboard
 from services.database import connect
 from services.race_prediction_repository import list_race_predictions
-from services.sync_service import list_sync_runs, sync_csv, sync_garmin
+from services.sync_service import (
+    diagnose_garmin_form,
+    list_sync_runs,
+    sync_csv,
+    sync_garmin,
+)
 
 LOGGER = logging.getLogger(__name__)
 SYNC_LOCK = Lock()
@@ -99,6 +105,29 @@ def race_predictions_endpoint(
 ):
     """Restituisce lo storico delle previsioni calcolate da Garmin."""
     return list_race_predictions(granularity)
+
+
+@router.post(
+    "/diagnostics/garmin-form",
+    response_model=GarminDiagnosticRun,
+    dependencies=[Depends(require_access_token)],
+)
+def garmin_form_diagnostic_endpoint(
+    days: int = Query(default=7, ge=1, le=31),
+):
+    """Interroga e salva le metriche Garmin disponibili per forma e recupero."""
+    if not SYNC_LOCK.acquire(blocking=False):
+        raise HTTPException(status_code=409, detail="Una sincronizzazione è già in corso.")
+    try:
+        return diagnose_garmin_form(days)
+    except Exception as error:
+        LOGGER.exception("Garmin form diagnostic failed")
+        raise HTTPException(
+            status_code=502,
+            detail="Diagnostica Garmin non riuscita. Controlla i log del server.",
+        ) from error
+    finally:
+        SYNC_LOCK.release()
 
 
 @router.post(

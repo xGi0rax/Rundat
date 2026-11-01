@@ -86,8 +86,20 @@ def initialize_database(db_path: Path | None = None) -> None:
     with connect(db_path) as connection:
         if connection.dialect == "sqlite":
             connection.execute("PRAGMA journal_mode = WAL")
+            _migrate_sqlite_activity_type_constraint(connection)
         for statement in statements:
             connection.execute(statement)
+        connection.execute(
+            """
+            UPDATE activities
+            SET activity_type = 'other'
+            WHERE activity_type IN ('generic', 'walking')
+              AND (
+                raw_data LIKE '%"typeKey":"walking"%'
+                OR raw_data LIKE '%"typeKey":"hiking"%'
+              )
+            """
+        )
         if connection.dialect == "sqlite":
             activity_columns = {
                 row["name"]
@@ -110,12 +122,68 @@ def initialize_database(db_path: Path | None = None) -> None:
         else:
             connection.execute(
                 "ALTER TABLE activities "
+                "DROP CONSTRAINT IF EXISTS activities_activity_type_check"
+            )
+            connection.execute(
+                "ALTER TABLE activities "
+                "ADD CONSTRAINT activities_activity_type_check "
+                "CHECK (activity_type IN ('running', 'cycling', 'generic', 'other'))"
+            )
+            connection.execute(
+                "ALTER TABLE activities "
                 "ADD COLUMN IF NOT EXISTS activity_type TEXT NOT NULL DEFAULT 'running'"
             )
             connection.execute(
                 "ALTER TABLE sync_runs "
                 "ADD COLUMN IF NOT EXISTS hr_zone_count INTEGER NOT NULL DEFAULT 0"
             )
+
+
+def _migrate_sqlite_activity_type_constraint(connection: DatabaseConnection) -> None:
+    """Aggiorna il vincolo SQLite per accettare le attività generiche esistenti."""
+    table = connection.execute(
+        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'activities'"
+    ).fetchone()
+    schema = (table["sql"] or "").lower() if table else ""
+    if not table or ("generic" in schema and "other" in schema):
+        return
+
+    connection.execute("PRAGMA foreign_keys = OFF")
+    connection.execute("DROP TABLE IF EXISTS activities_new")
+    connection.execute(
+        """
+        CREATE TABLE activities_new (
+            activity_id BIGINT PRIMARY KEY,
+            activity_name TEXT,
+            activity_type TEXT NOT NULL DEFAULT 'running'
+                CHECK (activity_type IN ('running', 'cycling', 'generic', 'other')),
+            start_time_local TEXT NOT NULL,
+            distance DOUBLE PRECISION NOT NULL CHECK (distance >= 0),
+            duration DOUBLE PRECISION NOT NULL CHECK (duration >= 0),
+            average_speed DOUBLE PRECISION,
+            average_hr DOUBLE PRECISION,
+            max_hr DOUBLE PRECISION,
+            calories DOUBLE PRECISION,
+            elevation_gain DOUBLE PRECISION,
+            raw_data TEXT NOT NULL,
+            synced_at TEXT NOT NULL
+        )
+        """
+    )
+    connection.execute(
+        """
+        INSERT INTO activities_new
+        SELECT activity_id, activity_name,
+               CASE WHEN activity_type = 'walking' THEN 'other' ELSE activity_type END,
+               start_time_local, distance,
+               duration, average_speed, average_hr, max_hr, calories, elevation_gain,
+               raw_data, synced_at
+        FROM activities
+        """
+    )
+    connection.execute("DROP TABLE activities")
+    connection.execute("ALTER TABLE activities_new RENAME TO activities")
+    connection.execute("PRAGMA foreign_keys = ON")
 
 
 def _postgres_placeholders(statement: str) -> str:
@@ -131,7 +199,7 @@ def _common_schema_statements(sync_run_id: str) -> tuple[str, ...]:
             activity_id BIGINT PRIMARY KEY,
             activity_name TEXT,
             activity_type TEXT NOT NULL DEFAULT 'running'
-                CHECK (activity_type IN ('running', 'cycling')),
+                CHECK (activity_type IN ('running', 'cycling', 'generic', 'other')),
             start_time_local TEXT NOT NULL,
             distance DOUBLE PRECISION NOT NULL CHECK (distance >= 0),
             duration DOUBLE PRECISION NOT NULL CHECK (duration >= 0),
@@ -159,6 +227,17 @@ def _common_schema_statements(sync_run_id: str) -> tuple[str, ...]:
             raw_data TEXT NOT NULL,
             synced_at TEXT NOT NULL,
             PRIMARY KEY (prediction_date, granularity)
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS garmin_form_diagnostics (
+            metric TEXT NOT NULL,
+            snapshot_date TEXT NOT NULL,
+            status TEXT NOT NULL CHECK (status IN ('available', 'empty', 'error', 'unavailable')),
+            payload TEXT,
+            error_message TEXT,
+            fetched_at TEXT NOT NULL,
+            PRIMARY KEY (metric, snapshot_date)
         )
         """,
         """
@@ -239,6 +318,7 @@ def _postgres_schema_statements() -> tuple[str, ...]:
                 "activity_hr_zone_sync",
                 "activity_routes",
                 "race_predictions",
+                "garmin_form_diagnostics",
                 "sync_runs",
                 "garmin_token_store",
             )

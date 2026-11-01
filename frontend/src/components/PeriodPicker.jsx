@@ -15,6 +15,9 @@ function PeriodPicker({
   className = '',
   dateRange,
   referenceDate,
+  onPrevious,
+  onNext,
+  canGoNext = true,
 }) {
   const periodEnd = referenceDate ?? new Date()
   const normalized = normalizePeriod(value, activities, periodEnd)
@@ -23,8 +26,8 @@ function PeriodPicker({
 
   return (
     <div className={`period-picker ${className}`.trim()}>
+      <span className="period-picker-heading">Intervallo</span>
       <label htmlFor={`${idPrefix}-amount`}>
-        <span>Numero</span>
         <select
           id={`${idPrefix}-amount`}
           value={normalized.amount}
@@ -39,7 +42,6 @@ function PeriodPicker({
         </select>
       </label>
       <label htmlFor={`${idPrefix}-unit`}>
-        <span>Periodo</span>
         <select
           id={`${idPrefix}-unit`}
           value={normalized.unit}
@@ -62,8 +64,28 @@ function PeriodPicker({
         </select>
       </label>
       <output className="period-picker-dates" aria-live="polite">
-        <span>Intervallo</span>
+        {onPrevious && (
+          <button
+            type="button"
+            className="period-picker-arrow"
+            onClick={onPrevious}
+            aria-label="Mostra il periodo precedente"
+          >
+            ←
+          </button>
+        )}
         <strong>{formatDate(visibleRange.start)} – {formatDate(visibleRange.end)}</strong>
+        {onNext && (
+          <button
+            type="button"
+            className="period-picker-arrow"
+            onClick={onNext}
+            disabled={!canGoNext}
+            aria-label="Mostra il periodo successivo"
+          >
+            →
+          </button>
+        )}
       </output>
     </div>
   )

@@ -22,7 +22,7 @@ def fetch_full_datas():
         )
     ]
     supported.to_csv(CSV_FILE, index=False)
-    LOGGER.info("Saved %s running and cycling activities to %s", len(supported), CSV_FILE)
+    LOGGER.info("Saved %s supported activities to %s", len(supported), CSV_FILE)
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)

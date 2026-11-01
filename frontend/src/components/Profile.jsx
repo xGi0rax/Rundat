@@ -101,7 +101,6 @@ function Profile({ summary, activities, cyclingActivities = [] }) {
         <div>
           <p className="eyebrow">Profilo</p>
           <h1>Corsa e bici, in sintesi.</h1>
-          <p>Volume complessivo, attività registrate e migliori prestazioni.</p>
         </div>
       </section>
 

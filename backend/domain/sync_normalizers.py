@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 from typing import Any
 
-SUPPORTED_ACTIVITY_TYPES = {"running", "cycling"}
+SUPPORTED_ACTIVITY_TYPES = {"running", "cycling", "generic", "other"}
 
 
 def _encode_raw_data(data: dict[str, Any]) -> str:
@@ -51,18 +51,25 @@ def normalize_activity_type(raw: dict[str, Any]) -> str:
         return "cycling"
     if "run" in normalized:
         return "running"
-    return normalized
+    if "walk" in normalized or "hike" in normalized:
+        return "other"
+    if normalized in {"generic", "other", "strength_training", "fitness_equipment", "indoor_cardio"}:
+        return "other"
+    return "generic"
 
 
 def normalize_activity(raw: dict[str, Any]) -> dict[str, Any] | None:
     """Normalizza l'operazione normalize activity."""
     activity_id = clean_value(raw.get("activityId"))
     start_time = clean_value(raw.get("startTimeLocal"))
+    activity_type = normalize_activity_type(raw)
     distance = float_or_none(raw.get("distance"))
     duration = float_or_none(raw.get("duration"))
-    if activity_id is None or start_time is None or distance is None or duration is None:
+    if activity_id is None or start_time is None or duration is None:
         return None
-    if distance < 0 or duration < 0:
+    if distance is None:
+        distance = 0 if activity_type == "generic" else None
+    if distance is None or distance < 0 or duration < 0:
         return None
 
     if hasattr(start_time, "to_pydatetime"):
@@ -82,7 +89,7 @@ def normalize_activity(raw: dict[str, Any]) -> dict[str, Any] | None:
     return {
         "activity_id": normalized_id,
         "activity_name": clean_value(raw.get("activityName")),
-        "activity_type": normalize_activity_type(raw),
+        "activity_type": activity_type,
         "start_time_local": start_time.isoformat(timespec="seconds"),
         "distance": distance,
         "duration": duration,

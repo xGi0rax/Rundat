@@ -146,6 +146,30 @@ class DatabaseSyncTests(unittest.TestCase):
         self.assertEqual(dashboard.total_activities, 1)
         self.assertEqual(dashboard.latest_activity.activity_type, "running")
 
+    def test_generic_activity_without_distance_is_persisted(self):
+        """Verifica che una generica senza distanza resti disponibile nella dashboard."""
+        self.rows[0] = {
+            **self.rows[0],
+            "activityName": "Palestra",
+            "activityType": {"typeKey": "strength_training"},
+            "distance": None,
+            "duration": 2700,
+        }
+        pd.DataFrame(self.rows).to_csv(self.csv_path, index=False)
+
+        sync_csv(self.csv_path, self.db_path)
+        activities = get_activities(self.db_path)
+
+        generic = next(activity for activity in activities if activity["activityId"] == 101)
+        self.assertEqual(generic["activityType"], "generic")
+        self.assertEqual(generic["distance"], 0)
+        self.assertEqual(generic["duration"], 2700)
+
+    def test_walking_activity_is_normalized_as_other(self):
+        """Verifica che una camminata venga conteggiata tra gli altri sport."""
+        walking = {**self.rows[0], "activityType": {"typeKey": "walking"}}
+        self.assertEqual(normalize_activity(walking)["activity_type"], "other")
+
     def test_dashboard_contract_is_preserved_after_migration(self):
         """Verifica l'operazione test dashboard contract is preserved after migration."""
         sync_csv(self.csv_path, self.db_path)

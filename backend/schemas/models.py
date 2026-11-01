@@ -19,7 +19,7 @@ class HeartRateZone(ApiModel):
 class ActivitySummary(ApiModel):
     activity_id: int = Field(alias="activityId")
     activity_name: str | None = Field(default=None, alias="activityName")
-    activity_type: Literal["running", "cycling"] = Field(alias="activityType")
+    activity_type: Literal["running", "cycling", "generic", "other"] = Field(alias="activityType")
     start_time_local: datetime = Field(alias="startTimeLocal")
     distance: float = Field(ge=0, description="Distance in metres")
     km: float = Field(ge=0)
@@ -67,6 +67,19 @@ class RacePrediction(ApiModel):
     ten_k: float | None = Field(default=None, alias="10k", ge=0)
     half_marathon: float | None = Field(default=None, alias="halfMarathon", ge=0)
     marathon: float | None = Field(default=None, ge=0)
+
+
+class GarminDiagnosticMetric(ApiModel):
+    metric: str
+    snapshot_date: str = Field(alias="snapshotDate")
+    status: Literal["available", "empty", "error", "unavailable"]
+    error_message: str | None = Field(default=None, alias="errorMessage")
+    fetched_at: datetime = Field(alias="fetchedAt")
+
+
+class GarminDiagnosticRun(ApiModel):
+    days: int = Field(ge=1, le=31)
+    metrics: list[GarminDiagnosticMetric]
 
 
 class SyncRun(ApiModel):

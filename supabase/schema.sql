@@ -2,7 +2,7 @@ CREATE TABLE IF NOT EXISTS activities (
     activity_id BIGINT PRIMARY KEY,
     activity_name TEXT,
     activity_type TEXT NOT NULL DEFAULT 'running'
-        CHECK (activity_type IN ('running', 'cycling')),
+        CHECK (activity_type IN ('running', 'cycling', 'generic', 'other')),
     start_time_local TEXT NOT NULL,
     distance DOUBLE PRECISION NOT NULL CHECK (distance >= 0),
     duration DOUBLE PRECISION NOT NULL CHECK (duration >= 0),
@@ -18,6 +18,21 @@ CREATE TABLE IF NOT EXISTS activities (
 ALTER TABLE activities
 ADD COLUMN IF NOT EXISTS activity_type TEXT NOT NULL DEFAULT 'running';
 
+ALTER TABLE activities
+DROP CONSTRAINT IF EXISTS activities_activity_type_check;
+
+ALTER TABLE activities
+ADD CONSTRAINT activities_activity_type_check
+CHECK (activity_type IN ('running', 'cycling', 'generic', 'other'));
+
+UPDATE activities
+SET activity_type = 'walking'
+WHERE activity_type = 'generic'
+  AND (
+    raw_data LIKE '%"typeKey":"walking"%'
+    OR raw_data LIKE '%"typeKey":"hiking"%'
+  );
+
 CREATE INDEX IF NOT EXISTS idx_activities_start_time
 ON activities(start_time_local DESC);
 
@@ -31,6 +46,16 @@ CREATE TABLE IF NOT EXISTS race_predictions (
     raw_data TEXT NOT NULL,
     synced_at TEXT NOT NULL,
     PRIMARY KEY (prediction_date, granularity)
+);
+
+CREATE TABLE IF NOT EXISTS garmin_form_diagnostics (
+    metric TEXT NOT NULL,
+    snapshot_date TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('available', 'empty', 'error', 'unavailable')),
+    payload TEXT,
+    error_message TEXT,
+    fetched_at TEXT NOT NULL,
+    PRIMARY KEY (metric, snapshot_date)
 );
 
 CREATE TABLE IF NOT EXISTS activity_hr_zones (
@@ -87,6 +112,7 @@ ALTER TABLE activity_hr_zones ENABLE ROW LEVEL SECURITY;
 ALTER TABLE activity_hr_zone_sync ENABLE ROW LEVEL SECURITY;
 ALTER TABLE activity_routes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE race_predictions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE garmin_form_diagnostics ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sync_runs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE garmin_token_store ENABLE ROW LEVEL SECURITY;
 

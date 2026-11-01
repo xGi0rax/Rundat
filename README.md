@@ -76,6 +76,7 @@ npm run check
 - `GET /api/health`
 - `GET /api/activities`
 - `GET /api/race-predictions`
+- `POST /api/diagnostics/garmin-form?days=7`
 - `GET /api/dashboard`
 - `POST /api/sync/csv`
 - `POST /api/sync/garmin`
@@ -84,6 +85,14 @@ npm run check
 La sincronizzazione Garmin importa anche lo storico delle previsioni gara
 giornaliere e mensili tramite l'endpoint ufficiale Garmin. La card Trend usa
 questi valori già calcolati da Garmin e non ricalcola localmente i tempi.
+
+La diagnostica Garmin interroga per gli ultimi giorni le metriche di forma,
+recupero e prestazione disponibili nel client `garminconnect` (readiness,
+training status, HRV, sonno, stress, Body Battery, frequenza cardiaca a
+riposo, metriche massime ed endurance score). I payload grezzi vengono salvati
+nel database locale per verificare quali dati restituisce realmente l'account.
+La diagnostica è separata dalla sincronizzazione ordinaria e non modifica la
+dashboard.
 
 ## Nota di sicurezza
 

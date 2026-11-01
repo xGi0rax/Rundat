@@ -3,13 +3,20 @@ import { periodStart, shiftPeriod } from './periods.js'
 export const ACTIVITY_TYPES = {
   running: 'running',
   cycling: 'cycling',
+  generic: 'generic',
+  other: 'other',
+  walking: 'walking',
 }
 
 // Gestisce activity type.
 export function activityType(activity) {
-  return activity?.activityType === ACTIVITY_TYPES.cycling
-    ? ACTIVITY_TYPES.cycling
-    : ACTIVITY_TYPES.running
+  if (activity?.activityType === ACTIVITY_TYPES.cycling) return ACTIVITY_TYPES.cycling
+  if (activity?.activityType === ACTIVITY_TYPES.generic) return ACTIVITY_TYPES.generic
+  if (
+    activity?.activityType === ACTIVITY_TYPES.other
+    || activity?.activityType === ACTIVITY_TYPES.walking
+  ) return ACTIVITY_TYPES.other
+  return ACTIVITY_TYPES.running
 }
 
 // Gestisce activities of type.
@@ -28,7 +35,7 @@ function localDateKey(date) {
 // Gestisce history configuration.
 function historyConfiguration(period) {
   if (period.amount === 1 && period.unit === 'week') {
-    return { count: 7, granularity: 'day', evenlySplit: true }
+    return { count: 8, granularity: 'day', evenlySplit: true }
   }
   if (period.amount === 1 && period.unit === 'month') {
     return { count: 5, granularity: 'week', evenlySplit: true }
@@ -41,7 +48,10 @@ function historyConfiguration(period) {
 
 // Gestisce create history buckets.
 function createHistoryBuckets(start, end, period) {
-  const configuration = historyConfiguration(period)
+  const configured = historyConfiguration(period)
+  const configuration = configured.granularity === 'day'
+    ? { ...configured, count: Math.floor((end - start) / 86400000) + 1 }
+    : configured
   const boundaries = configuration.granularity === 'day'
     ? Array.from({ length: configuration.count + 1 }, (_value, index) => {
         const boundary = new Date(end)
@@ -91,17 +101,20 @@ function addZones(target, activity) {
 }
 
 // Gestisce analyze combined activities.
-export function analyzeCombinedActivities(activities, period, now = new Date()) {
+export function analyzeCombinedActivities(activities, period, now = new Date(), rangeOverride = null) {
   const end = new Date(now)
-  const start = periodStart(period, end)
+  const start = rangeOverride?.start ?? periodStart(period, end)
+  const analysisEnd = rangeOverride?.end ?? end
   const filtered = activities.filter((activity) => {
     const date = new Date(activity.startTimeLocal)
-    return !Number.isNaN(date.getTime()) && date >= start && date <= end
+    return !Number.isNaN(date.getTime()) && date >= start && date <= analysisEnd
   })
   const zoneSeconds = Array(5).fill(0)
   const sport = {
     running: { count: 0, duration: 0, distanceKm: 0 },
     cycling: { count: 0, duration: 0, distanceKm: 0 },
+    generic: { count: 0, duration: 0, distanceKm: 0 },
+    other: { count: 0, duration: 0, distanceKm: 0 },
   }
   let totalDuration = 0
   let trackedActivities = 0
@@ -127,7 +140,7 @@ export function analyzeCombinedActivities(activities, period, now = new Date()) 
     seconds,
     percentage: trackedSeconds ? (seconds / trackedSeconds) * 100 : 0,
   }))
-  const historyAnalysis = createHistoryBuckets(start, end, period)
+  const historyAnalysis = createHistoryBuckets(start, analysisEnd, period)
   filtered.forEach((activity) => {
     const values = Array(5).fill(0)
     addZones(values, activity)
@@ -138,7 +151,7 @@ export function analyzeCombinedActivities(activities, period, now = new Date()) 
       && activityDate >= boundary
       && (
         activityDate < historyAnalysis.boundaries[index + 1]
-        || (index === historyAnalysis.buckets.length - 1 && activityDate <= end)
+        || (index === historyAnalysis.buckets.length - 1 && activityDate <= analysisEnd)
       )
     ))
     if (bucketIndex < 0) return
@@ -148,10 +161,17 @@ export function analyzeCombinedActivities(activities, period, now = new Date()) 
     })
     bucket.activities += 1
   })
+  historyAnalysis.buckets.forEach((bucket) => {
+    bucket.totalMinutes = ['z1', 'z2', 'z3', 'z4', 'z5']
+      .reduce((total, key) => total + bucket[key], 0)
+    bucket.topZone = ['z5', 'z4', 'z3', 'z2', 'z1']
+      .findIndex((key) => bucket[key] > 0)
+    if (bucket.topZone >= 0) bucket.topZone = 4 - bucket.topZone
+  })
 
   return {
     start,
-    end,
+    end: analysisEnd,
     activities: filtered,
     activityCount: filtered.length,
     totalDuration,

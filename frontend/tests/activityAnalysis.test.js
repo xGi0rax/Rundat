@@ -34,13 +34,51 @@ test('combined dashboard aggregates running and cycling heart-rate zones', () =>
   assert.equal(result.sport.cycling.count, 1)
   assert.equal(result.trackedActivities, 2)
   assert.equal(result.zones[1].seconds, 1800)
-  assert.equal(result.history.length, 7)
+  assert.equal(result.history.length, 8)
 })
 
 test('legacy activities remain classified as running', () => {
   const activities = [activity(1, undefined, '2026-08-06', 1800, 5)]
   assert.equal(activitiesOfType(activities, 'running').length, 1)
   assert.equal(activitiesOfType(activities, 'cycling').length, 0)
+})
+
+test('generic activities are not classified as running', () => {
+  const activities = [activity(1, 'generic', '2026-08-06', 1800, 0)]
+  const result = analyzeCombinedActivities(
+    activities,
+    { amount: 1, unit: 'week' },
+    new Date('2026-08-07T12:00:00'),
+  )
+
+  assert.equal(activitiesOfType(activities, 'running').length, 0)
+  assert.equal(activitiesOfType(activities, 'generic').length, 1)
+  assert.equal(result.sport.generic.count, 1)
+  assert.equal(result.sport.running.count, 0)
+})
+
+test('other sport activities are not classified as generic', () => {
+  const activities = [activity(1, 'other', '2026-08-06', 1800, 5)]
+  const result = analyzeCombinedActivities(
+    activities,
+    { amount: 1, unit: 'week' },
+    new Date('2026-08-07T12:00:00'),
+  )
+
+  assert.equal(result.sport.other.count, 1)
+  assert.equal(result.sport.generic.count, 0)
+})
+
+test('legacy walking activities are classified as other sports', () => {
+  const activities = [activity(1, 'walking', '2026-08-06', 1800, 5)]
+  const result = analyzeCombinedActivities(
+    activities,
+    { amount: 1, unit: 'week' },
+    new Date('2026-08-07T12:00:00'),
+  )
+
+  assert.equal(result.sport.other.count, 1)
+  assert.equal(result.sport.running.count, 0)
 })
 
 test('zone history column count follows the selected period', () => {
@@ -52,7 +90,7 @@ test('zone history column count follows the selected period', () => {
   assert.equal(analyzeCombinedActivities(activities, { amount: 2, unit: 'week' }, now).history.length, 2)
   assert.equal(analyzeCombinedActivities(activities, { amount: 5, unit: 'month' }, now).history.length, 5)
   assert.equal(analyzeCombinedActivities(activities, { amount: 3, unit: 'year' }, now).history.length, 3)
-  assert.equal(analyzeCombinedActivities(activities, { amount: 1, unit: 'week' }, now).history.length, 7)
+  assert.equal(analyzeCombinedActivities(activities, { amount: 1, unit: 'week' }, now).history.length, 8)
   assert.equal(analyzeCombinedActivities(activities, { amount: 1, unit: 'month' }, now).history.length, 5)
   assert.equal(analyzeCombinedActivities(activities, { amount: 1, unit: 'year' }, now).history.length, 12)
 })
