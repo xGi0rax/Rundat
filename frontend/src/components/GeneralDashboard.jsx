@@ -584,7 +584,10 @@ function GeneralDashboard({ activities, syncState, onSync }) {
                   {analysis.heartRateThresholds.length > 0 ? (
                     <div className="zone-threshold-list">
                       {analysis.heartRateThresholds.map((zone, index) => {
-                        const hasRange = zone.lowBpm !== null && zone.highBpm !== null
+                        const hasLow = zone.lowBpm !== null
+                        const hasHigh = zone.highBpm !== null
+                        const rangeStart = hasLow ? zone.lowBpm : 80
+                        const rangeEnd = hasHigh ? zone.highBpm : 200
                         return (
                           <div className="zone-threshold-row" key={zone.zone}>
                             <span
@@ -594,19 +597,25 @@ function GeneralDashboard({ activities, syncState, onSync }) {
                               Z{zone.zone}
                             </span>
                             <div className="zone-threshold-track">
-                              {hasRange && (
+                              {(hasLow || hasHigh) && (
                                 <span
                                   className="zone-threshold-range"
                                   style={{
                                     backgroundColor: HEART_RATE_ZONE_COLORS[index],
-                                    left: `${Math.max(0, ((zone.lowBpm - 80) / 120) * 100)}%`,
-                                    width: `${Math.max(0, ((zone.highBpm - zone.lowBpm) / 120) * 100)}%`,
+                                    left: `${Math.max(0, ((rangeStart - 80) / 120) * 100)}%`,
+                                    width: `${Math.max(0, ((rangeEnd - rangeStart) / 120) * 100)}%`,
                                   }}
                                 />
                               )}
                             </div>
                             <strong>
-                              {hasRange ? `${zone.lowBpm}–${zone.highBpm}` : '—'}
+                              {hasLow && hasHigh
+                                ? `${zone.lowBpm}–${zone.highBpm}`
+                                : hasLow
+                                  ? `≥${zone.lowBpm}`
+                                  : hasHigh
+                                    ? `≤${zone.highBpm}`
+                                    : '—'}
                             </strong>
                             <small>BPM</small>
                           </div>
