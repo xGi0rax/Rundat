@@ -101,6 +101,23 @@ def initialize_database(db_path: Path | None = None) -> None:
             """,
             ('%"typeKey":"walking"%', '%"typeKey":"hiking"%'),
         )
+        connection.execute(
+            """
+            UPDATE activities
+            SET activity_type = 'generic'
+            WHERE activity_type = 'other'
+              AND (
+                raw_data LIKE ?
+                OR raw_data LIKE ?
+                OR raw_data LIKE ?
+              )
+            """,
+            (
+                '%"typeKey":"strength_training"%',
+                '%"typeKey":"fitness_equipment"%',
+                '%"typeKey":"indoor_cardio"%',
+            ),
+        )
         if connection.dialect == "sqlite":
             activity_columns = {
                 row["name"]
