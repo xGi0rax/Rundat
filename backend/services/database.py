@@ -95,10 +95,11 @@ def initialize_database(db_path: Path | None = None) -> None:
             SET activity_type = 'other'
             WHERE activity_type IN ('generic', 'walking')
               AND (
-                raw_data LIKE '%"typeKey":"walking"%'
-                OR raw_data LIKE '%"typeKey":"hiking"%'
+                raw_data LIKE ?
+                OR raw_data LIKE ?
               )
-            """
+            """,
+            ('%"typeKey":"walking"%', '%"typeKey":"hiking"%'),
         )
         if connection.dialect == "sqlite":
             activity_columns = {
