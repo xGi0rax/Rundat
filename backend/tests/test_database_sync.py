@@ -170,6 +170,15 @@ class DatabaseSyncTests(unittest.TestCase):
         walking = {**self.rows[0], "activityType": {"typeKey": "walking"}}
         self.assertEqual(normalize_activity(walking)["activity_type"], "other")
 
+    def test_generic_altro_activity_is_normalized_as_gym(self):
+        """Verifica che Garmin 'Altro' venga conteggiato come palestra."""
+        gym = {
+            **self.rows[0],
+            "activityName": "Altro",
+            "activityType": {"typeKey": "other"},
+        }
+        self.assertEqual(normalize_activity(gym)["activity_type"], "generic")
+
     def test_dashboard_contract_is_preserved_after_migration(self):
         """Verifica l'operazione test dashboard contract is preserved after migration."""
         sync_csv(self.csv_path, self.db_path)

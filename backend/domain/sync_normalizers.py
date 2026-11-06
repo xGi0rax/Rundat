@@ -40,6 +40,7 @@ def float_or_none(value: Any) -> float | None:
 
 def normalize_activity_type(raw: dict[str, Any]) -> str:
     """Normalizza l'operazione normalize activity type."""
+    activity_name = str(clean_value(raw.get("activityName")) or "").strip().lower()
     activity_type = clean_value(raw.get("activityType"))
     if isinstance(activity_type, dict):
         value = activity_type.get("typeKey") or activity_type.get("parentTypeId")
@@ -53,6 +54,8 @@ def normalize_activity_type(raw: dict[str, Any]) -> str:
         return "running"
     if "walk" in normalized or "hike" in normalized:
         return "other"
+    if normalized == "other" and activity_name == "altro":
+        return "generic"
     if normalized in {"strength_training", "fitness_equipment", "indoor_cardio"}:
         return "generic"
     if normalized in {"generic", "other"}:

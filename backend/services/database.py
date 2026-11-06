@@ -110,12 +110,14 @@ def initialize_database(db_path: Path | None = None) -> None:
                 raw_data LIKE ?
                 OR raw_data LIKE ?
                 OR raw_data LIKE ?
+                OR raw_data LIKE ?
               )
             """,
             (
                 '%"typeKey":"strength_training"%',
                 '%"typeKey":"fitness_equipment"%',
                 '%"typeKey":"indoor_cardio"%',
+                '%"activityName":"Altro"%',
             ),
         )
         if connection.dialect == "sqlite":
