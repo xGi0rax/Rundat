@@ -582,49 +582,39 @@ function GeneralDashboard({ activities, syncState, onSync }) {
                   <h3>Soglie BPM</h3>
                   <p>Intervalli dell’attività più recente con dati disponibili.</p>
                   {analysis.heartRateThresholds.length > 0 ? (
-                    <div className="zone-threshold-chart">
-                      <ChartContainer>
-                        <BarChart
-                          data={analysis.heartRateThresholds.map((zone) => ({
-                            ...zone,
-                            range: zone.lowBpm !== null && zone.highBpm !== null
-                              ? zone.highBpm - zone.lowBpm
-                              : 0,
-                          }))}
-                          layout="vertical"
-                          margin={{ top: 8, right: 12, left: 0, bottom: 8 }}
-                        >
-                          <CartesianGrid horizontal={false} stroke="var(--chart-grid)" />
-                          <XAxis type="number" tickLine={false} axisLine={false} unit=" BPM" />
-                          <YAxis
-                            dataKey="zone"
-                            type="category"
-                            tickFormatter={(value) => `Z${value}`}
-                            tickLine={false}
-                            axisLine={false}
-                            width={28}
-                          />
-                          <Tooltip
-                            formatter={(_value, _name, item) => {
-                              const { lowBpm, highBpm } = item.payload
-                              return [
-                                lowBpm !== null && highBpm !== null
-                                  ? `${lowBpm}–${highBpm} BPM`
-                                  : 'Soglia non disponibile',
-                                'Intervallo',
-                              ]
-                            }}
-                          />
-                          <Bar dataKey="lowBpm" stackId="threshold" fill="transparent" />
-                          <Bar
-                            dataKey="range"
-                            stackId="threshold"
-                            fill="var(--accent)"
-                            radius={[0, 5, 5, 0]}
-                            name="Intervallo"
-                          />
-                        </BarChart>
-                      </ChartContainer>
+                    <div className="zone-threshold-list">
+                      {analysis.heartRateThresholds.map((zone, index) => {
+                        const hasRange = zone.lowBpm !== null && zone.highBpm !== null
+                        return (
+                          <div className="zone-threshold-row" key={zone.zone}>
+                            <span
+                              className="zone-threshold-label"
+                              style={{ color: HEART_RATE_ZONE_COLORS[index] }}
+                            >
+                              Z{zone.zone}
+                            </span>
+                            <div className="zone-threshold-track">
+                              {hasRange && (
+                                <span
+                                  className="zone-threshold-range"
+                                  style={{
+                                    backgroundColor: HEART_RATE_ZONE_COLORS[index],
+                                    left: `${Math.max(0, ((zone.lowBpm - 80) / 120) * 100)}%`,
+                                    width: `${Math.max(0, ((zone.highBpm - zone.lowBpm) / 120) * 100)}%`,
+                                  }}
+                                />
+                              )}
+                            </div>
+                            <strong>
+                              {hasRange ? `${zone.lowBpm}–${zone.highBpm}` : '—'}
+                            </strong>
+                            <small>BPM</small>
+                          </div>
+                        )
+                      })}
+                      <div className="zone-threshold-axis">
+                        <span>80</span><span>110</span><span>140</span><span>170</span><span>200 BPM</span>
+                      </div>
                     </div>
                   ) : (
                     <div className="thresholds-empty">Soglie BPM non disponibili.</div>

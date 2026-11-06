@@ -1808,11 +1808,59 @@
   font-size: 0.74rem;
 }
 
-.zone-threshold-chart {
-  width: 100%;
-  height: 290px;
+.zone-threshold-list {
+  display: grid;
+  gap: 14px;
   margin-top: 15px;
-  font-size: 0.69rem;
+  padding: 8px 0 0;
+}
+
+.zone-threshold-row {
+  display: grid;
+  grid-template-columns: 28px minmax(100px, 1fr) 68px 28px;
+  align-items: center;
+  gap: 8px;
+  min-height: 25px;
+}
+
+.zone-threshold-label {
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.zone-threshold-track {
+  position: relative;
+  height: 12px;
+  border-radius: 999px;
+  background: var(--surface-soft);
+  overflow: hidden;
+}
+
+.zone-threshold-range {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  min-width: 4px;
+  border-radius: inherit;
+}
+
+.zone-threshold-row strong {
+  color: var(--ink);
+  font-size: 0.78rem;
+  text-align: right;
+}
+
+.zone-threshold-row small {
+  color: var(--muted);
+  font-size: 0.65rem;
+}
+
+.zone-threshold-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-left: 36px;
+  color: var(--muted);
+  font-size: 0.64rem;
 }
 
 .thresholds-empty {
@@ -4085,6 +4133,11 @@ tbody tr:hover {
   .zone-thresholds h3,
   .zone-thresholds > p {
     margin-inline: 6px;
+  }
+
+  .zone-threshold-row {
+    grid-template-columns: 28px minmax(80px, 1fr) 62px 24px;
+    gap: 5px;
   }
 
   .zone-history h3,
