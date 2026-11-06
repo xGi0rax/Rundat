@@ -1856,9 +1856,9 @@
 }
 
 .zone-threshold-axis {
+  grid-column: 2;
   display: flex;
   justify-content: space-between;
-  margin-left: 36px;
   color: var(--muted);
   font-size: 0.64rem;
 }
