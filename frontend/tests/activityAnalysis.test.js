@@ -94,3 +94,24 @@ test('zone history column count follows the selected period', () => {
   assert.equal(analyzeCombinedActivities(activities, { amount: 1, unit: 'month' }, now).history.length, 5)
   assert.equal(analyzeCombinedActivities(activities, { amount: 1, unit: 'year' }, now).history.length, 12)
 })
+
+test('heart-rate thresholds use the latest activity with zone boundaries', () => {
+  const activities = [{
+    ...activity(1, 'running', '2026-08-06', 1800, 5),
+    heartRateZones: [
+      { zone: 1, seconds: 60, lowBpm: 95, highBpm: 114 },
+      { zone: 2, seconds: 600, lowBpm: 115, highBpm: 134 },
+    ],
+  }]
+
+  const result = analyzeCombinedActivities(
+    activities,
+    { amount: 1, unit: 'week' },
+    new Date('2026-08-07T12:00:00'),
+  )
+
+  assert.deepEqual(result.heartRateThresholds.slice(0, 2), [
+    { zone: 1, lowBpm: 95, highBpm: 114 },
+    { zone: 2, lowBpm: 115, highBpm: 134 },
+  ])
+})

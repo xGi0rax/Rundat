@@ -531,7 +531,8 @@ function GeneralDashboard({ activities, syncState, onSync }) {
             </div>
 
             {analysis.history.length > 0 && (
-              <div className="zone-history">
+              <div className="zone-charts-grid">
+                <div className="zone-history">
                 <h3>Zone nel tempo</h3>
                 <p>Minuti complessivi per periodo, sommando corsa e bici.</p>
                 <div className="zone-history-chart combined-zone-history-chart">
@@ -575,6 +576,59 @@ function GeneralDashboard({ activities, syncState, onSync }) {
                       ))}
                     </BarChart>
                   </ChartContainer>
+                </div>
+                </div>
+                <div className="zone-thresholds">
+                  <h3>Soglie BPM</h3>
+                  <p>Intervalli dell’attività più recente con dati disponibili.</p>
+                  {analysis.heartRateThresholds.length > 0 ? (
+                    <div className="zone-threshold-chart">
+                      <ChartContainer>
+                        <BarChart
+                          data={analysis.heartRateThresholds.map((zone) => ({
+                            ...zone,
+                            range: zone.lowBpm !== null && zone.highBpm !== null
+                              ? zone.highBpm - zone.lowBpm
+                              : 0,
+                          }))}
+                          layout="vertical"
+                          margin={{ top: 8, right: 12, left: 0, bottom: 8 }}
+                        >
+                          <CartesianGrid horizontal={false} stroke="var(--chart-grid)" />
+                          <XAxis type="number" tickLine={false} axisLine={false} unit=" BPM" />
+                          <YAxis
+                            dataKey="zone"
+                            type="category"
+                            tickFormatter={(value) => `Z${value}`}
+                            tickLine={false}
+                            axisLine={false}
+                            width={28}
+                          />
+                          <Tooltip
+                            formatter={(_value, _name, item) => {
+                              const { lowBpm, highBpm } = item.payload
+                              return [
+                                lowBpm !== null && highBpm !== null
+                                  ? `${lowBpm}–${highBpm} BPM`
+                                  : 'Soglia non disponibile',
+                                'Intervallo',
+                              ]
+                            }}
+                          />
+                          <Bar dataKey="lowBpm" stackId="threshold" fill="transparent" />
+                          <Bar
+                            dataKey="range"
+                            stackId="threshold"
+                            fill="var(--accent)"
+                            radius={[0, 5, 5, 0]}
+                            name="Intervallo"
+                          />
+                        </BarChart>
+                      </ChartContainer>
+                    </div>
+                  ) : (
+                    <div className="thresholds-empty">Soglie BPM non disponibili.</div>
+                  )}
                 </div>
               </div>
             )}

@@ -100,6 +100,27 @@ function addZones(target, activity) {
   })
 }
 
+// Gestisce le soglie cardiache dell'attività più recente con dati disponibili.
+function latestHeartRateThresholds(activities) {
+  for (const activity of activities) {
+    const zones = Array.isArray(activity.heartRateZones) ? activity.heartRateZones : []
+    const thresholds = Array.from({ length: 5 }, (_value, index) => {
+      const zone = zones.find((item) => Number(item.zone) === index + 1)
+      const lowBpm = Number(zone?.lowBpm)
+      const highBpm = Number(zone?.highBpm)
+      return {
+        zone: index + 1,
+        lowBpm: Number.isFinite(lowBpm) ? lowBpm : null,
+        highBpm: Number.isFinite(highBpm) ? highBpm : null,
+      }
+    })
+    if (thresholds.some((zone) => zone.lowBpm !== null || zone.highBpm !== null)) {
+      return thresholds
+    }
+  }
+  return []
+}
+
 // Gestisce analyze combined activities.
 export function analyzeCombinedActivities(activities, period, now = new Date(), rangeOverride = null) {
   const end = new Date(now)
@@ -178,6 +199,7 @@ export function analyzeCombinedActivities(activities, period, now = new Date(), 
     trackedActivities,
     trackedSeconds,
     zones,
+    heartRateThresholds: latestHeartRateThresholds(filtered),
     sport,
     granularity: historyAnalysis.granularity,
     history: historyAnalysis.buckets,
