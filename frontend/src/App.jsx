@@ -10,19 +10,17 @@ import {
 } from './services/api.js'
 import { activitiesOfType } from './domain/activityAnalysis.js'
 
-const Analytics = lazy(() => import('./components/Analytics.jsx'))
 const GeneralDashboard = lazy(() => import('./components/GeneralDashboard.jsx'))
 const Profile = lazy(() => import('./components/Profile.jsx'))
+const Running = lazy(() => import('./components/Running.jsx'))
 const Sports = lazy(() => import('./components/Sports.jsx'))
-const Trends = lazy(() => import('./components/Trends.jsx'))
 
 const navigationItems = [
   {
     href: '#dashboard', view: 'dashboard', label: 'Dashboard generale', mobileLabel: 'Home', icon: 'dashboard',
   },
-  { href: '#sport', view: 'sports', label: 'Attività', mobileLabel: 'Attività', icon: 'ironman' },
-  { href: '#analytics', view: 'analytics', label: 'Analisi corsa', mobileLabel: 'Analisi', icon: 'analytics' },
-  { href: '#trends', view: 'trends', label: 'Trend corsa', mobileLabel: 'Trend', icon: 'trends' },
+  { href: '#sport', view: 'sports', label: 'Raggi X', mobileLabel: 'Raggi X', icon: 'ironman' },
+  { href: '#corsa', view: 'running', label: 'Corsa', mobileLabel: 'Corsa', icon: 'trends' },
   { href: '#profilo', view: 'profile', label: 'Profilo', mobileLabel: 'Profilo', icon: 'profile' },
 ]
 
@@ -142,8 +140,13 @@ function currentView() {
     || window.location.hash === '#cycling'
     || window.location.hash === '#bici'
   ) return 'sports'
-  if (window.location.hash === '#analytics') return 'analytics'
-  if (window.location.hash === '#trends') return 'trends'
+  if (
+    window.location.hash === '#corsa'
+    || window.location.hash === '#corsa/analisi'
+    || window.location.hash === '#corsa/trend'
+    || window.location.hash === '#analytics'
+    || window.location.hash === '#trends'
+  ) return 'running'
   if (window.location.hash === '#profilo' || window.location.hash === '#profile') return 'profile'
   return 'dashboard'
 }
@@ -397,9 +400,8 @@ function App() {
                 cyclingActivities={cyclingActivities}
               />
             )}
-            {view === 'analytics' && <Analytics activities={runningActivities} />}
-            {view === 'trends' && (
-              <Trends
+            {view === 'running' && (
+              <Running
                 activities={runningActivities}
                 allActivities={data.activities}
                 racePredictions={data.racePredictions}

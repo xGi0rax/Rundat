@@ -112,6 +112,29 @@ function beginningOfTrendPeriod(date, granularity) {
   return beginningOfWeek(date)
 }
 
+function periodAlignmentLabel(unit) {
+  if (unit === 'month') return 'Fai partire a inizio mese'
+  if (unit === 'year') return 'Fai partire a inizio anno'
+  return 'Fai partire la settimana da lunedì'
+}
+
+function alignedPeriodStart(period, referenceDate) {
+  const anchor = period.unit === 'week'
+    ? beginningOfWeek(referenceDate)
+    : period.unit === 'month'
+      ? beginningOfMonth(referenceDate)
+      : beginningOfYear(referenceDate)
+  const blockStart = new Date(anchor)
+  if (period.unit === 'week') {
+    blockStart.setDate(blockStart.getDate() - ((period.amount - 1) * 7))
+  } else if (period.unit === 'month') {
+    blockStart.setMonth(blockStart.getMonth() - (period.amount - 1))
+  } else {
+    blockStart.setFullYear(blockStart.getFullYear() - (period.amount - 1))
+  }
+  return blockStart
+}
+
 // Gestisce local date key.
 function localDateKey(date) {
   const year = date.getFullYear()
@@ -473,8 +496,8 @@ function predictionSummary(predictions, key) {
 }
 
 // Gestisce race prediction trend.
-function RacePredictionTrend({ activities, racePredictions, period, granularity }) {
-  const start = periodStart(period)
+function RacePredictionTrend({ activities, racePredictions, periodStartDate, granularity }) {
+  const start = periodStartDate
   const end = new Date()
   const buckets = aggregateTrends(activities, start, end, granularity)
   const sourceGranularity = granularity === 'week' ? 'daily' : 'monthly'
@@ -605,30 +628,47 @@ function Trends({ activities, allActivities = activities, racePredictions }) {
   const [period, setPeriod] = useState({ amount: 12, unit: 'month' })
   const [granularity, setGranularity] = useState('week')
   const [excludeEmptyPeriods, setExcludeEmptyPeriods] = useState(false)
-  const analysis = useMemo(() => {
+  const [alignPeriod, setAlignPeriod] = useState(false)
+  const dateRange = useMemo(() => {
     const end = new Date()
-    const start = periodStart(period)
-    const data = aggregateTrends(activities, start, end, granularity)
     return {
-      start,
+      start: alignPeriod ? alignedPeriodStart(period, end) : periodStart(period, end),
+      end,
+    }
+  }, [alignPeriod, period])
+  const analysis = useMemo(() => {
+    const data = aggregateTrends(activities, dateRange.start, dateRange.end, granularity)
+    return {
+      start: dateRange.start,
       data: excludeEmptyPeriods ? data.filter((point) => point.runs > 0) : data,
     }
-  }, [activities, excludeEmptyPeriods, granularity, period])
+  }, [activities, dateRange, excludeEmptyPeriods, granularity])
   return (
     <div className="page-stack">
       <section className="page-heading trends-heading">
         <div>
           <p className="eyebrow">Trend</p>
-          <h1>Come sta cambiando la mia corsa.</h1>
+          <h1>Andamento parametri corsa.</h1>
         </div>
         <div className="trend-controls">
           <PeriodPicker
             value={period}
-            onChange={setPeriod}
+            onChange={(value) => {
+              setPeriod(value)
+            }}
             activities={activities}
             idPrefix="trend-period"
             className="trend-period-picker"
+            dateRange={dateRange}
           />
+          <label className="monday-alignment-control">
+            <input
+              type="checkbox"
+              checked={alignPeriod}
+              onChange={(event) => setAlignPeriod(event.target.checked)}
+            />
+            {periodAlignmentLabel(period.unit)}
+          </label>
           <div
             className="period-control trend-period-control"
             role="group"
@@ -671,7 +711,7 @@ function Trends({ activities, allActivities = activities, racePredictions }) {
       <RacePredictionTrend
         activities={activities}
         racePredictions={racePredictions}
-        period={period}
+        periodStartDate={dateRange.start}
         granularity={granularity}
       />
       <PerformanceOverview

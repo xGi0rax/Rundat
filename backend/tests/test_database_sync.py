@@ -179,6 +179,15 @@ class DatabaseSyncTests(unittest.TestCase):
         }
         self.assertEqual(normalize_activity(gym)["activity_type"], "generic")
 
+    def test_padel_activity_is_normalized_as_other_sport(self):
+        """Verifica che il padel venga conteggiato tra gli altri sport."""
+        padel = {
+            **self.rows[0],
+            "activityName": "Padel",
+            "activityType": {"typeKey": "other"},
+        }
+        self.assertEqual(normalize_activity(padel)["activity_type"], "other")
+
     def test_dashboard_contract_is_preserved_after_migration(self):
         """Verifica l'operazione test dashboard contract is preserved after migration."""
         sync_csv(self.csv_path, self.db_path)

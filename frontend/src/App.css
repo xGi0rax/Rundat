@@ -1531,6 +1531,7 @@
 }
 
 .monthly-activity-chart {
+  position: relative;
   height: 220px;
   padding: 16px 12px 0;
 }
@@ -1564,14 +1565,14 @@
 
 .sport-recap-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px;
 }
 
 .sport-recap-grid article {
   display: grid;
   gap: 6px;
-  padding: 24px;
+  padding: 19px 20px;
 }
 
 .sport-recap-grid h2 {
@@ -1599,6 +1600,10 @@
 
 .generic-recap-card {
   border-top: 4px solid #7d9b45;
+}
+
+.padel-recap-card {
+  border-top: 4px solid #c45a8a;
 }
 
 .other-recap-card {
@@ -1792,6 +1797,8 @@
 }
 
 .zone-thresholds {
+  min-width: 0;
+  overflow: hidden;
   padding: 22px 24px 24px;
   border-top: 1px solid var(--line);
 }
@@ -1809,7 +1816,8 @@
 }
 
 .zone-threshold-list {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 14px;
   margin-top: 15px;
   padding: 8px 0 0;
@@ -1821,6 +1829,8 @@
   align-items: center;
   gap: 8px;
   min-height: 25px;
+  width: 100%;
+  min-width: 0;
 }
 
 .zone-threshold-label {
@@ -1856,7 +1866,9 @@
 }
 
 .zone-threshold-axis {
-  grid-column: 2;
+  width: calc(100% - 36px);
+  margin-left: 36px;
+  min-width: 0;
   display: flex;
   justify-content: space-between;
   color: var(--muted);
@@ -1889,6 +1901,10 @@
   height: 290px;
   margin-top: 15px;
   font-size: 0.69rem;
+}
+
+.zone-history-chart-mobile {
+  display: none;
 }
 
 .zone-empty {
@@ -3908,6 +3924,34 @@ tbody tr:hover {
   .period-metric-card-static {
     grid-column: span 1;
   }
+
+  .zone-charts-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .zone-thresholds {
+    padding-inline: 12px;
+  }
+
+  .zone-thresholds h3,
+  .zone-thresholds > p {
+    margin-inline: 6px;
+  }
+
+  .zone-threshold-row {
+    grid-template-columns: 28px minmax(0, 1fr) 62px 24px;
+    gap: 5px;
+  }
+
+  .zone-threshold-list {
+    gap: 13px;
+    padding-inline: 6px;
+  }
+
+  .zone-threshold-axis {
+    font-size: 0.58rem;
+  }
 }
 
 @media (max-width: 640px) {
@@ -4136,8 +4180,17 @@ tbody tr:hover {
   }
 
   .zone-threshold-row {
-    grid-template-columns: 28px minmax(80px, 1fr) 62px 24px;
+    grid-template-columns: 28px minmax(0, 1fr) 62px 24px;
     gap: 5px;
+  }
+
+  .zone-threshold-list {
+    gap: 13px;
+    padding-inline: 6px;
+  }
+
+  .zone-threshold-axis {
+    font-size: 0.58rem;
   }
 
   .zone-history h3,
@@ -4147,6 +4200,15 @@ tbody tr:hover {
 
   .zone-history-chart {
     height: 250px;
+  }
+
+  .zone-history-chart-desktop {
+    display: none;
+  }
+
+  .zone-history-chart-mobile {
+    display: block;
+    height: auto;
   }
 
   .comparison-values strong {

@@ -54,6 +54,8 @@ def normalize_activity_type(raw: dict[str, Any]) -> str:
         return "running"
     if "walk" in normalized or "hike" in normalized:
         return "other"
+    if "padel" in activity_name:
+        return "other"
     if normalized == "other" and activity_name == "altro":
         return "generic"
     if normalized in {"strength_training", "fitness_equipment", "indoor_cardio"}:

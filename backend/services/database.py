@@ -120,6 +120,18 @@ def initialize_database(db_path: Path | None = None) -> None:
                 '%"activityName":"Altro"%',
             ),
         )
+        connection.execute(
+            """
+            UPDATE activities
+            SET activity_type = 'other'
+            WHERE activity_type = 'generic'
+              AND (
+                lower(activity_name) LIKE ?
+                OR lower(raw_data) LIKE ?
+              )
+            """,
+            ('%padel%', '%"activityName":"%padel%"%'),
+        )
         if connection.dialect == "sqlite":
             activity_columns = {
                 row["name"]

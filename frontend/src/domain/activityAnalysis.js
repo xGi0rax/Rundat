@@ -5,6 +5,7 @@ export const ACTIVITY_TYPES = {
   cycling: 'cycling',
   generic: 'generic',
   other: 'other',
+  padel: 'padel',
   walking: 'walking',
 }
 
@@ -12,6 +13,9 @@ export const ACTIVITY_TYPES = {
 export function activityType(activity) {
   if (activity?.activityType === ACTIVITY_TYPES.cycling) return ACTIVITY_TYPES.cycling
   if (activity?.activityType === ACTIVITY_TYPES.generic) return ACTIVITY_TYPES.generic
+  if (String(activity?.activityName || '').toLowerCase().includes('padel')) {
+    return ACTIVITY_TYPES.padel
+  }
   if (
     activity?.activityType === ACTIVITY_TYPES.other
     || activity?.activityType === ACTIVITY_TYPES.walking
@@ -136,6 +140,7 @@ export function analyzeCombinedActivities(activities, period, now = new Date(), 
     cycling: { count: 0, duration: 0, distanceKm: 0 },
     generic: { count: 0, duration: 0, distanceKm: 0 },
     other: { count: 0, duration: 0, distanceKm: 0 },
+    padel: { count: 0, duration: 0, distanceKm: 0 },
   }
   let totalDuration = 0
   let trackedActivities = 0

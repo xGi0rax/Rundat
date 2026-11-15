@@ -69,6 +69,19 @@ test('other sport activities are not classified as generic', () => {
   assert.equal(result.sport.generic.count, 0)
 })
 
+test('padel activities have their own dashboard category', () => {
+  const activities = [activity(1, 'other', '2026-08-06', 1800, 0)]
+  activities[0].activityName = 'Padel'
+  const result = analyzeCombinedActivities(
+    activities,
+    { amount: 1, unit: 'week' },
+    new Date('2026-08-07T12:00:00'),
+  )
+
+  assert.equal(result.sport.padel.count, 1)
+  assert.equal(result.sport.other.count, 0)
+})
+
 test('legacy walking activities are classified as other sports', () => {
   const activities = [activity(1, 'walking', '2026-08-06', 1800, 5)]
   const result = analyzeCombinedActivities(

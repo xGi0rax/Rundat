@@ -164,8 +164,12 @@ function comparisonActivityData(
   const dailyBuckets = period.unit === 'week'
     || (period.unit === 'month' && period.amount === 1)
   const rangeDuration = (range) => range.end.getTime() - range.start.getTime() + 1
-  const cumulative = (items, range) => {
-    const values = Array.from({ length: bucketCount }, (_value, index) => ({
+  const previousDays = rangeDays(previousRange)
+  const currentBucketCount = dailyBuckets ? currentDays : bucketCount
+  const previousBucketCount = dailyBuckets ? previousDays : bucketCount
+  const chartBucketCount = Math.max(currentBucketCount, previousBucketCount)
+  const cumulative = (items, range, rangeBucketCount) => {
+    const values = Array.from({ length: rangeBucketCount }, (_value, index) => ({
       day: index + 1,
       duration: 0,
       distance: 0,
@@ -177,8 +181,8 @@ function comparisonActivityData(
       const index = dailyBuckets
         ? Math.floor((date - range.start) / 86400000)
         : Math.min(
-          bucketCount - 1,
-          Math.max(0, Math.floor(((date - range.start) / rangeDuration(range)) * bucketCount)),
+          rangeBucketCount - 1,
+          Math.max(0, Math.floor(((date - range.start) / rangeDuration(range)) * rangeBucketCount)),
         )
       const point = values[index]
       if (!point) return
@@ -196,23 +200,23 @@ function comparisonActivityData(
       return { day: point.day, ...totals }
     })
   }
-  const previousSeries = cumulative(previous, previousRange)
-  const currentSeries = cumulative(current, currentRange)
+  const previousSeries = cumulative(previous, previousRange, previousBucketCount)
+  const currentSeries = cumulative(current, currentRange, currentBucketCount)
   const elapsedBuckets = dailyBuckets
     ? Math.min(
-      bucketCount,
+      currentBucketCount,
       Math.max(1, Math.floor((referenceDate - currentRange.start) / 86400000) + 1),
     )
     : Math.min(
-      bucketCount,
-      Math.max(1, Math.ceil(((referenceDate - currentRange.start) / rangeDuration(currentRange)) * bucketCount)),
+      currentBucketCount,
+      Math.max(1, Math.ceil(((referenceDate - currentRange.start) / rangeDuration(currentRange)) * currentBucketCount)),
     )
   const chartData = Array.from(
-    { length: bucketCount },
+    { length: chartBucketCount },
     (_value, index) => ({
       day: index + 1,
-      currentDuration: index < elapsedBuckets ? currentSeries[index].duration : null,
-      previousDuration: previousSeries[index].duration,
+      currentDuration: index < elapsedBuckets ? currentSeries[index]?.duration ?? null : null,
+      previousDuration: previousSeries[index]?.duration ?? null,
     }),
   )
   return {
@@ -222,7 +226,7 @@ function comparisonActivityData(
     currentStartLabel: formatDate(currentRange.start),
     currentEndLabel: formatDate(currentRange.end),
     currentLabel: `${formatDate(currentRange.start)} – ${formatDate(currentRange.end)}`,
-    previousLabel: `${formatDate(previousRange.start)} – ${formatDate(previousRange.end)}`,
+    previousLabel: previousPeriodLabel(previousRange, period, alignToMonday),
   }
 }
 
@@ -231,6 +235,29 @@ function formatMonthlyDuration(seconds) {
   const hours = Math.floor(totalMinutes / 60)
   const minutes = totalMinutes % 60
   return hours ? `${hours}h ${minutes}m` : `${minutes}m`
+}
+
+function previousPeriodLabel(range, period, alignToMonday) {
+  if (period.unit === 'month' && period.amount === 1 && alignToMonday) {
+    const month = new Intl.DateTimeFormat('it-IT', { month: 'long' }).format(range.start)
+    return month.charAt(0).toUpperCase() + month.slice(1)
+  }
+  return `${formatDate(range.start)} – ${formatDate(range.end)}`
+}
+
+function PreviousPeriodLabel({ viewBox, value }) {
+  const x = viewBox?.x ?? 0
+  const y = viewBox?.y ?? 0
+  return (
+    <text
+      x={x + 8}
+      y={Math.max(16, y - 8)}
+      fill="var(--muted)"
+      fontSize={12}
+    >
+      {value}
+    </text>
+  )
 }
 
 function MonthlyActivityPanel({ title, data, showDistance = true }) {
@@ -264,17 +291,16 @@ function MonthlyActivityPanel({ title, data, showDistance = true }) {
           <LineChart data={data.chartData} margin={{ top: 16, right: 12, left: 0, bottom: 0 }}>
             <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
             <XAxis dataKey="day" tick={false} tickLine={false} axisLine={false} />
-            <YAxis hide />
+            <YAxis hide domain={[0, 'auto']} />
             <ReferenceLine
               y={data.previous.duration}
               stroke="#b8b8b8"
               strokeDasharray="5 4"
-              label={{
-                value: `${data.previousLabel} · ${formatMonthlyDuration(data.previous.duration)}`,
-                position: 'insideTopLeft',
-                fill: 'var(--muted)',
-                fontSize: 12,
-              }}
+              label={(
+                <PreviousPeriodLabel
+                  value={`${data.previousLabel} · ${formatMonthlyDuration(data.previous.duration)}`}
+                />
+              )}
             />
             <Line
               type="stepAfter"
@@ -347,6 +373,9 @@ function GeneralDashboard({ activities, syncState, onSync }) {
     generic: comparisonActivityData(
       activities, 'generic', period, alignToMonday, referenceDate, periodOffset,
     ),
+    padel: comparisonActivityData(
+      activities, 'padel', period, alignToMonday, referenceDate, periodOffset,
+    ),
     other: comparisonActivityData(
       activities, 'other', period, alignToMonday, referenceDate, periodOffset,
     ),
@@ -414,7 +443,7 @@ function GeneralDashboard({ activities, syncState, onSync }) {
         <article>
           <span>Attività</span>
           <strong>{analysis.activityCount.toLocaleString('it-IT')}</strong>
-          <small>{analysis.sport.running.count} corse · {analysis.sport.cycling.count} bici · {analysis.sport.generic.count} palestra · {analysis.sport.other.count} altri sport</small>
+          <small>{analysis.sport.running.count} corse · {analysis.sport.cycling.count} bici · {analysis.sport.generic.count} palestra · {analysis.sport.padel.count} padel · {analysis.sport.other.count} altri sport</small>
         </article>
         <article>
           <span>Tempo totale</span>
@@ -434,30 +463,34 @@ function GeneralDashboard({ activities, syncState, onSync }) {
       </section>
 
       <section className="sport-recap-grid" aria-label="Riepilogo per sport">
-        <article className="panel running-recap-card">
+        {analysis.sport.running.count > 0 && <article className="panel running-recap-card">
           <p className="eyebrow">Corsa</p>
           <h2>{analysis.sport.running.count} attività</h2>
           <strong>Distanza: {formatDistance(analysis.sport.running.distanceKm)}</strong>
           <span>Durata: {formatDuration(analysis.sport.running.duration)}</span>
-        </article>
-        <article className="panel cycling-recap-card">
+        </article>}
+        {analysis.sport.cycling.count > 0 && <article className="panel cycling-recap-card">
           <p className="eyebrow">Bici</p>
           <h2>{analysis.sport.cycling.count} attività</h2>
           <strong>Distanza: {formatDistance(analysis.sport.cycling.distanceKm)}</strong>
           <span>Durata: {formatDuration(analysis.sport.cycling.duration)}</span>
-        </article>
-        <article className="panel generic-recap-card">
+        </article>}
+        {analysis.sport.generic.count > 0 && <article className="panel generic-recap-card">
           <p className="eyebrow">Palestra</p>
           <h2>{analysis.sport.generic.count} attività</h2>
-          <strong>Distanza: ---</strong>
-          <span>Durata: {formatDuration(analysis.sport.generic.duration)}</span>
-        </article>
-        <article className="panel other-recap-card">
+          <strong>Durata: {formatDuration(analysis.sport.generic.duration)}</strong>
+        </article>}
+        {analysis.sport.padel.count > 0 && <article className="panel padel-recap-card">
+          <p className="eyebrow">Padel</p>
+          <h2>{analysis.sport.padel.count} attività</h2>
+          <strong>Durata: {formatDuration(analysis.sport.padel.duration)}</strong>
+        </article>}
+        {analysis.sport.other.count > 0 && <article className="panel other-recap-card">
           <p className="eyebrow">Altri sport</p>
           <h2>{analysis.sport.other.count} attività</h2>
           <strong>Distanza: {formatDistance(analysis.sport.other.distanceKm)}</strong>
           <span>Durata: {formatDuration(analysis.sport.other.duration)}</span>
-        </article>
+        </article>}
       </section>
 
       <section className="monthly-activities-section" aria-labelledby="monthly-activities-title">
@@ -466,6 +499,7 @@ function GeneralDashboard({ activities, syncState, onSync }) {
           <MonthlyActivityPanel title="Corsa" data={monthlyData.running} />
           <MonthlyActivityPanel title="Ciclismo" data={monthlyData.cycling} />
           <MonthlyActivityPanel title="Palestra" data={monthlyData.generic} showDistance={false} />
+          <MonthlyActivityPanel title="Padel" data={monthlyData.padel} showDistance={false} />
           <MonthlyActivityPanel title="Altri sport" data={monthlyData.other} />
         </div>
       </section>
@@ -535,7 +569,7 @@ function GeneralDashboard({ activities, syncState, onSync }) {
                 <div className="zone-history">
                 <h3>Zone nel tempo</h3>
                 <p>Minuti complessivi per periodo, sommando corsa e bici.</p>
-                <div className="zone-history-chart combined-zone-history-chart">
+                <div className="zone-history-chart zone-history-chart-desktop combined-zone-history-chart">
                   <ChartContainer>
                     <BarChart data={analysis.history} margin={{ top: 12, right: 18, left: 0, bottom: 4 }}>
                       <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
@@ -572,6 +606,52 @@ function GeneralDashboard({ activities, syncState, onSync }) {
                           shape={(shapeProps) => (
                             <ZoneBarShape {...shapeProps} index={index} />
                           )}
+                        />
+                      ))}
+                    </BarChart>
+                  </ChartContainer>
+                </div>
+                <div
+                  className="zone-history-chart zone-history-chart-mobile"
+                  style={{ height: `${Math.max(260, analysis.history.length * 38)}px` }}
+                >
+                  <ChartContainer>
+                    <BarChart
+                      data={analysis.history}
+                      layout="vertical"
+                      margin={{ top: 8, right: 12, left: 0, bottom: 8 }}
+                    >
+                      <CartesianGrid horizontal={false} stroke="var(--chart-grid)" />
+                      <XAxis
+                        type="number"
+                        tickFormatter={(value) => `${Math.round(value)}m`}
+                        tickLine={false}
+                        axisLine={false}
+                      />
+                      <YAxis
+                        dataKey="date"
+                        type="category"
+                        tickFormatter={(value) => historyLabel(value, analysis.granularity)}
+                        tickLine={false}
+                        axisLine={false}
+                        width={48}
+                      />
+                      <Tooltip
+                        labelFormatter={(value, payload) => (
+                          historyTooltipLabel(value, payload, analysis.granularity)
+                        )}
+                        formatter={(value, name) => [
+                          `${Number(value).toLocaleString('it-IT', { maximumFractionDigits: 1 })} min`,
+                          name,
+                        ]}
+                      />
+                      {HEART_RATE_ZONE_COLORS.map((color, index) => (
+                        <Bar
+                          key={`mobile-z${index + 1}`}
+                          dataKey={`z${index + 1}`}
+                          stackId="mobile-zones"
+                          fill={color}
+                          name={`Z${index + 1}`}
                         />
                       ))}
                     </BarChart>
